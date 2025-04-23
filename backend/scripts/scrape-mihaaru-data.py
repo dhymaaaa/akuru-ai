@@ -12,15 +12,15 @@ import logging
 if not os.path.exists('backend/data/raw/mihaaru'):
     os.makedirs('backend/data/raw/mihaaru')
 
-# Set up logging AFTER directory is created
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("backend/data/raw/mihaaru/scraping.log"),
-        logging.StreamHandler()
-    ]
-)
+# # Set up logging AFTER directory is created
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("backend/data/raw/mihaaru/scraping.log"),
+#         logging.StreamHandler()
+#     ]
+# )
 
 # Function to scrape a Mihaaru article
 def scrape_mihaaru_article(url):
@@ -88,9 +88,9 @@ def scrape_mihaaru_article(url):
             'title': title_text,
             'date': date_text,
             'content': content_text,
-            'html': html_content,
-            'source': 'mihaaru',
-            'scraped_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 'html': html_content,
+            # 'source': 'mihaaru',
+            # 'scraped_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
     except Exception as e:
@@ -138,7 +138,7 @@ def extract_article_id(url):
     return f"article_{int(time.time())}"
 
 # Function to scrape by article IDs for Mihaaru
-def scrape_mihaaru_by_ids(start_id=144000, max_articles=1000):
+def scrape_mihaaru_by_ids(start_id=144000, max_articles=600):
     articles = []
     articles_scraped = 0
     current_id = start_id
@@ -173,9 +173,9 @@ def scrape_mihaaru_by_ids(start_id=144000, max_articles=1000):
             failed_consecutive += 1
             logging.warning(f"Failed to scrape Mihaaru article ID: {current_id}")
             
-            # Log failed IDs
-            with open('backend/data/raw/mihaaru/mihaaru_failed_ids.txt', 'a') as f:
-                f.write(f"{current_id}\n")
+            # # Log failed IDs
+            # with open('backend/data/raw/mihaaru/mihaaru_failed_ids.txt', 'a') as f:
+            #     f.write(f"{current_id}\n")
         
         # Move to next ID
         current_id += 1
@@ -183,16 +183,16 @@ def scrape_mihaaru_by_ids(start_id=144000, max_articles=1000):
         # Be nice to the server with a small delay
         time.sleep(random.uniform(2, 5))
     
-    # Save successful IDs
-    with open('backend/data/raw/mihaaru/mihaaru_successful_ids.txt', 'w') as f:
-        for id in successful_ids:
-            f.write(f"{id}\n")
+    # # Save successful IDs
+    # with open('backend/data/raw/mihaaru/mihaaru_successful_ids.txt', 'w') as f:
+    #     for id in successful_ids:
+    #         f.write(f"{id}\n")
     
     logging.info(f"Finished scraping {len(articles)} Mihaaru articles")
     return articles
 
 # Function to navigate pages and find articles for Mihaaru
-def scrape_mihaaru_by_navigation(max_articles=1000):
+def scrape_mihaaru_by_navigation(max_articles=600):
     all_articles = []
     articles_scraped = 0
     page_num = 1
@@ -290,12 +290,12 @@ def scrape_mihaaru_by_navigation(max_articles=1000):
 def main():
     # Method 1: Scrape Mihaaru by article IDs
     logging.info("Starting Mihaaru scraping by article IDs")
-    mihaaru_articles = scrape_mihaaru_by_ids(start_id=144000, max_articles=1000)
+    mihaaru_articles = scrape_mihaaru_by_ids(start_id=144000, max_articles=600)
     
     # If we didn't get enough articles, try navigation method
-    if len(mihaaru_articles) < 1000:
+    if len(mihaaru_articles) < 600:
         logging.info(f"Only scraped {len(mihaaru_articles)} articles by ID. Trying navigation method.")
-        remaining_articles = 1000 - len(mihaaru_articles)
+        remaining_articles = 600 - len(mihaaru_articles)
         scrape_mihaaru_by_navigation(max_articles=remaining_articles)
     
     logging.info("Finished scraping operation. Articles saved to 'raw' folder.")
