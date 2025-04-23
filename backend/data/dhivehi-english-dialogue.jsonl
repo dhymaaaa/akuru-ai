@@ -1,0 +1,60 @@
+{"input": "How are you doing?", "output": "އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟"}
+{"input": "How are you doing?", "output": ".ގޯހެއް ނޫން، ފަހަރަކު ދުވަހެއް ހޭދަކުރަނީ"}
+{"input": "How are you doing?", "output": ".ވަރަށް ބުރަކޮށްދަނީ، އެކަމަކު ރަނގަޅު ހަމަ"}
+{"input": "How are you doing?", "output": ".ފުދޭ ވަރަކަށް ރަނގަޅު، ޝަކުވާ ކުރެވޭކަށް ނެތް"}
+{"input": "How are you doing?", "output": ".މިހާރަށް ވުރެ ރަނގަޅު ދުވަސްތައް ދިޔަ ނަމަވެސް ކެއްކޮށްލެވޭ ވަރުވޭ"}
+{"input": "How's everything going?", "output": "އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟"}
+{"input": "How's everything going?", "output": ".ގޯހެއް ނޫން، ފަހަރަކު ދުވަހެއް ހޭދަކުރަނީ"}
+{"input": "How's everything going?", "output": ".މިހާރަށް ވުރެ ރަނގަޅު ދުވަސްތައް ދިޔަ ނަމަވެސް ކެއްކޮށްލެވޭ ވަރުވޭ"}
+{"input": "How's everything going?", "output": ".ފުދޭ ވަރަކަށް ރަނގަޅު، ޝަކުވާ ކުރެވޭކަށް ނެތް"}
+{"input": "How's everything going?", "output": ".މިހާރަށް ވުރެ ރަނގަޅު ދުވަސްތައް ދިޔަ ނަމަވެސް ކެއްކޮށްލެވޭ ވަރުވޭ"}
+{"input": "What's up with you?", "output": "އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟"}
+{"input": "What's up with you?", "output": ".ގޯހެއް ނޫން، ފަހަރަކު ދުވަހެއް ހޭދަކުރަނީ"}
+{"input": "What's up with you?", "output": ".މިހާރަށް ވުރެ ރަނގަޅު ދުވަސްތައް ދިޔަ ނަމަވެސް ކެއްކޮށްލެވޭ ވަރުވޭ"}
+{"input": "What's up with you?", "output": ".ފުދޭ ވަރަކަށް ރަނގަޅު، ޝަކުވާ ކުރެވޭކަށް ނެތް"}
+{"input": "What's up with you?", "output": ".މިހާރަށް ވުރެ ރަނގަޅު ދުވަސްތައް ދިޔަ ނަމަވެސް ކެއްކޮށްލެވޭ ވަރުވޭ"}
+{"input": "So, what do you do for a living?", "output": ".މިވަގުތު ކިޔަވަނީ. ކޮމްޕިއުޓަރ ސައިންސް މިހަދަނީ"}
+{"input": "So, what do you do for a living?", "output": ".މިއުޅެނީ މާކެޓިންގ ކުންފުންޏެއްގައި"}
+{"input": "So, what do you do for a living?", "output": ".ރައްޓެއްސެއްގެ ކުންފުނީގެ ވެބްސައިޓް ޑިސައިން ކޮށްދެނީ"}
+{"input": "So, what do you do for a living?", "output": ".ވަޒީފާއެއް ހޯދަނީމި މިހާރު"}
+{"input": "So, what do you do for a living?", "output": ".އަމިއްލަ ވިޔަފާރިއެއް ފަށައިގެން މިއުޅެނީ"}
+{"input": "Are you working or studying?", "output": ".މިވަގުތު ކިޔަވަނީ. ކޮމްޕިއުޓަރ ސައިންސް މިހަދަނީ"}
+{"input": "Are you working or studying?", "output": ".މިއުޅެނީ މާކެޓިންގ ކުންފުންޏެއްގައި"}
+{"input": "Are you working or studying?", "output": ".ރައްޓެއްސެއްގެ ކުންފުނީގެ ވެބްސައިޓް ޑިސައިން ކޮށްދެނީ"}
+{"input": "Are you working or studying?", "output": ".ވަޒީފާއެއް ހޯދަނީމި މިހާރު"}
+{"input": "Are you working or studying?", "output": ".އަމިއްލަ ވިޔަފާރިއެއް ފަށައިގެން މިއުޅެނީ"}
+{"input": "What keeps you busy these days?", "output": ".މިވަގުތު ކިޔަވަނީ. ކޮމްޕިއުޓަރ ސައިންސް މިހަދަނީ"}
+{"input": "What keeps you busy these days?", "output": ".މިއުޅެނީ މާކެޓިންގ ކުންފުންޏެއްގައި"}
+{"input": "What keeps you busy these days?", "output": ".ރައްޓެއްސެއްގެ ކުންފުނީގެ ވެބްސައިޓް ޑިސައިން ކޮށްދެނީ"}
+{"input": "What keeps you busy these days?", "output": ".ވަޒީފާއެއް ހޯދަނީމި މިހާރު"}
+{"input": "What keeps you busy these days?", "output": ".އަމިއްލަ ވިޔަފާރިއެއް ފަށައިގެން މިއުޅެނީ"}
+{"input": "What do you like to do in your free time?", "output": ".ވަރަށް ވާހަކަ ކިޔައި އުޅެން"}
+{"input": "What do you like to do in your free time?", "output": "ރައްޓެހިންނާއެކީ ގިނައިން އުޅެނީ، ދެން ބައެއް ފަހަރު ދުއްވާލަން ދާން."}
+{"input": "What do you like to do in your free time?", "output": "އެކިއެއްޗެހި ކެއްކުމުގަ އުޅެނީ، އާ ރެސިޕީތައް."}
+{"input": "What do you like to do in your free time?", "output": "އަރާމުކޮށްލާ ނިދި ހަމަވޭތޯ އުޅެނީ."}
+{"input": "What do you like to do in your free time?", "output": "ގޭމު ކުޅެނީ އާންމުކޮށް."}
+{"input": "Got any hobbies?", "output": ".ވަރަށް ވާހަކަ ކިޔައި އުޅެން"}
+{"input": "Got any hobbies?", "output": "ރައްޓެހިންނާއެކީ ގިނައިން އުޅެނީ، ދެން ބައެއް ފަހަރު ދުއްވާލަން ދާން."}
+{"input": "Got any hobbies?", "output": "އެކިއެއްޗެހި ކެއްކުމުގަ އުޅެނީ، އާ ރެސިޕީތައް."}
+{"input": "Got any hobbies?", "output": "އަރާމުކޮށްލާ ނިދި ހަމަވޭތޯ އުޅެނީ."}
+{"input": "Got any hobbies?", "output": "ގޭމު ކުޅެނީ އާންމުކޮށް."}
+{"input": "How do you usually spend your weekends?", "output": ".ވަރަށް ވާހަކަ ކިޔައި އުޅެން"}
+{"input": "How do you usually spend your weekends?", "output": "ރައްޓެހިންނާއެކީ ގިނައިން އުޅެނީ، ދެން ބައެއް ފަހަރު ދުއްވާލަން ދާން."}
+{"input": "How do you usually spend your weekends?", "output": "އެކިއެއްޗެހި ކެއްކުމުގަ އުޅެނީ، އާ ރެސިޕީތައް."}
+{"input": "How do you usually spend your weekends?", "output": "އަރާމުކޮށްލާ ނިދި ހަމަވޭތޯ އުޅެނީ."}
+{"input": "How do you usually spend your weekends?", "output": "ގޭމު ކުޅެނީ އާންމުކޮށް."}
+{"input": "Where are you from?", "output": "އުފަންވެ ބޮޑުވީ ދިވެއްސެއްގެ ގޮތުގައި."}
+{"input": "Where are you from?", "output": "ބޮޑުވީ ލަންކާގައި، އެކަމަކު މިހާރު ރާއްޖޭގައި އުޅެނީ."}
+{"input": "Where are you from?", "output": "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."}
+{"input": "Where are you from?", "output": "މުޅި އުމުރު މިތާ މިއުޅެނީ."}
+{"input": "Where are you from?", "output": "އަސްލު ފްރާންސް، ދުވަސްކޮޅަކަށް ޖައްސާލީ މިކޮޅަށް."}
+{"input": "Where did you grow up?", "output": "އުފަންވެ ބޮޑުވީ ދިވެއްސެއްގެ ގޮތުގައި."}
+{"input": "Where did you grow up?", "output": "ބޮޑުވީ ލަންކާގައި، އެކަމަކު މިހާރު ރާއްޖޭގައި އުޅެނީ."}
+{"input": "Where did you grow up?", "output": "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."}
+{"input": "Where did you grow up?", "output": "މުޅި އުމުރު މިތާ މިއުޅެނީ."}
+{"input": "Where did you grow up?", "output": "އަސްލު ފްރާންސް، ދުވަސްކޮޅަކަށް ޖައްސާލީ މިކޮޅަށް."}
+{"input": "Are you originally from around here?", "output": "އުފަންވެ ބޮޑުވީ ދިވެއްސެއްގެ ގޮތުގައި."}
+{"input": "Are you originally from around here?", "output": "ބޮޑުވީ ލަންކާގައި، އެކަމަކު މިހާރު ރާއްޖޭގައި އުޅެނީ."}
+{"input": "Are you originally from around here?", "output": "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."}
+{"input": "Are you originally from around here?", "output": "މުޅި އުމުރު މިތާ މިއުޅެނީ."}
+{"input": "Are you originally from around here?", "output": "އަސްލު ފްރާންސް، ދުވަސްކޮޅަކަށް ޖައްސާލީ މިކޮޅަށް."}

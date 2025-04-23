@@ -1,0 +1,19 @@
+python -m venv .venv
+.\.venv\Scripts\activate 
+
+beautifulsoup4
+python-dotenv
+pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
+transformers
+accelerate
+datasets
+bitsandbytes
+peft
+scikit-learn
+pandas
+tqdm
+rouge_score
+flask-cors
+mysql-connector-python
+bcrypt
+jwt
