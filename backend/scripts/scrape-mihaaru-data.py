@@ -14,7 +14,7 @@ if not os.path.exists('backend/data/raw/mihaaru'):
 
 # # Set up logging AFTER directory is created
 # logging.basicConfig(
-#     level=logging.INFO,
+#     level=print,
 #     format='%(asctime)s - %(levelname)s - %(message)s',
 #     handlers=[
 #         logging.FileHandler("backend/data/raw/mihaaru/scraping.log"),
@@ -150,7 +150,7 @@ def scrape_mihaaru_by_ids(start_id=144000, max_articles=600):
     
     while articles_scraped < max_articles and failed_consecutive < 50:  # Stop if too many consecutive failures
         url = f"https://mihaaru.com/news/{current_id}"
-        logging.info(f"Trying Mihaaru article ID: {current_id} ({articles_scraped+1}/{max_articles})")
+        print(f"Trying Mihaaru article ID: {current_id} ({articles_scraped+1}/{max_articles})")
         
         article_data = scrape_mihaaru_article(url)
         
@@ -167,7 +167,7 @@ def scrape_mihaaru_by_ids(start_id=144000, max_articles=600):
             
             # Save progress periodically
             if articles_scraped % 10 == 0:
-                logging.info(f"Scraped {articles_scraped} Mihaaru articles")
+                print(f"Scraped {articles_scraped} Mihaaru articles")
         else:
             failed_ids.append(current_id)
             failed_consecutive += 1
@@ -188,7 +188,7 @@ def scrape_mihaaru_by_ids(start_id=144000, max_articles=600):
     #     for id in successful_ids:
     #         f.write(f"{id}\n")
     
-    logging.info(f"Finished scraping {len(articles)} Mihaaru articles")
+    print(f"Finished scraping {len(articles)} Mihaaru articles")
     return articles
 
 # Function to navigate pages and find articles for Mihaaru
@@ -217,14 +217,14 @@ def scrape_mihaaru_by_navigation(max_articles=600):
         found_new_links = False
         
         for base_url in possible_urls:
-            logging.info(f"Getting article links from {base_url}")
+            print(f"Getting article links from {base_url}")
             article_links = get_mihaaru_article_links(base_url)
             
             if not article_links:
                 logging.warning(f"No article links found on {base_url}")
                 continue
                 
-            logging.info(f"Found {len(article_links)} links")
+            print(f"Found {len(article_links)} links")
             
             # Process each article
             for link in article_links:
@@ -233,7 +233,7 @@ def scrape_mihaaru_by_navigation(max_articles=600):
                     continue
                     
                 found_new_links = True
-                logging.info(f"Scraping Mihaaru article {articles_scraped+1}/{max_articles}: {link}")
+                print(f"Scraping Mihaaru article {articles_scraped+1}/{max_articles}: {link}")
                 
                 article_data = scrape_mihaaru_article(link)
                 
@@ -256,7 +256,7 @@ def scrape_mihaaru_by_navigation(max_articles=600):
                     
                     # Save progress periodically
                     if articles_scraped % 10 == 0:
-                        logging.info(f"Saved {articles_scraped} Mihaaru articles")
+                        print(f"Saved {articles_scraped} Mihaaru articles")
                     
                     # Check if we've reached our target
                     if articles_scraped >= max_articles:
@@ -270,7 +270,7 @@ def scrape_mihaaru_by_navigation(max_articles=600):
         
         # If we didn't find any new links on this page, we might be at the end
         if not found_new_links:
-            logging.info(f"No new links found on page {page_num}, moving to next page")
+            print(f"No new links found on page {page_num}, moving to next page")
         
         # Move to next page
         page_num += 1
@@ -283,22 +283,22 @@ def scrape_mihaaru_by_navigation(max_articles=600):
             logging.warning("Reached end of available content for Mihaaru")
             break
     
-    logging.info(f"Finished scraping {len(all_articles)} Mihaaru articles via navigation")
+    print(f"Finished scraping {len(all_articles)} Mihaaru articles via navigation")
     return all_articles
 
 # Main function to run the complete scraping operation
 def main():
     # Method 1: Scrape Mihaaru by article IDs
-    logging.info("Starting Mihaaru scraping by article IDs")
+    print("Starting Mihaaru scraping by article IDs")
     mihaaru_articles = scrape_mihaaru_by_ids(start_id=144000, max_articles=600)
     
     # If we didn't get enough articles, try navigation method
     if len(mihaaru_articles) < 600:
-        logging.info(f"Only scraped {len(mihaaru_articles)} articles by ID. Trying navigation method.")
+        print(f"Only scraped {len(mihaaru_articles)} articles by ID. Trying navigation method.")
         remaining_articles = 600 - len(mihaaru_articles)
         scrape_mihaaru_by_navigation(max_articles=remaining_articles)
     
-    logging.info("Finished scraping operation. Articles saved to 'raw' folder.")
+    print("Finished scraping operation. Articles saved to 'raw' folder.")
 
 if __name__ == "__main__":
     main()
