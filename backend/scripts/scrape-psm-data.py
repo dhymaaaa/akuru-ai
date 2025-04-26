@@ -5,7 +5,6 @@ import random
 import os
 import re
 import json
-from datetime import datetime
 
 # Create folder if it doesn't exist
 if not os.path.exists('backend/data/raw/psm'):
@@ -69,22 +68,11 @@ def scrape_psm_article(url):
             print(f"No substantial content found in {url}")
             return None
         
-        # Extract images if available
-        images = []
-        for img in soup.find_all('figure', class_=lambda c: c and 'bg-cover' in c):
-            style = img.get('style', '')
-            img_url_match = re.search(r'url\("([^"]+)"\)', style)
-            if img_url_match:
-                images.append(img_url_match.group(1))
-        
         return {
             'url': url,
             'title': title_text,
             'date': date_text,
-            'content': content_text,
-            # 'images': images,
-            # 'source': 'psm',
-            # 'scraped_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'content': content_text
         }
         
     except Exception as e:
@@ -160,7 +148,6 @@ def scrape_psm_by_ids(start_id=156000, max_articles=275):
         # Move to next ID
         current_id += 1
         
-        # Be nice to the server with a small delay
         time.sleep(random.uniform(2, 5))
     
     print(f"Finished scraping {len(articles)} PSM articles")
@@ -228,7 +215,6 @@ def scrape_psm_by_navigation(max_articles=275):
                     if articles_scraped >= max_articles:
                         break
                 
-                # Be nice to the server with a small delay
                 time.sleep(random.uniform(2, 5))
             
             if articles_scraped >= max_articles:
