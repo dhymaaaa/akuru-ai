@@ -1,0 +1,123 @@
+2025-04-26 14:33:19,126 - INFO - Starting Dhivehi article processing for Gemma 3 1B training
+2025-04-26 14:33:19,132 - INFO - Found 125 article files from sun
+2025-04-26 14:33:19,148 - INFO - Found 480 article files from mihaaru
+2025-04-26 14:33:19,191 - WARNING - Directory backend/data/raw\raajje does not exist, skipping.
+2025-04-26 14:33:19,191 - INFO - Found 117 article files from adhadhu
+2025-04-26 14:33:19,206 - INFO - Found 275 article files from psm
+2025-04-26 14:33:19,236 - INFO - Articles by source:
+2025-04-26 14:33:19,236 - INFO -   sun: 125 articles
+2025-04-26 14:33:19,236 - INFO -   mihaaru: 475 articles
+2025-04-26 14:33:19,236 - INFO -   raajje: 0 articles
+2025-04-26 14:33:19,236 - INFO -   adhadhu: 117 articles
+2025-04-26 14:33:19,236 - INFO -   psm: 275 articles
+2025-04-26 14:33:19,236 - INFO - Successfully loaded 992 total articles from all sources
+2025-04-26 14:33:19,239 - INFO - Quality check on sample articles by source:
+2025-04-26 14:33:19,239 - INFO - Samples from sun:
+2025-04-26 14:33:19,241 - INFO -   Sample 1:
+2025-04-26 14:33:19,241 - INFO -     Title: ބޮލީވުޑްގެ އެކްޓަރު އާމިރު ޚާންގެ އަމިއްލަ ޕްރޮޑަކްޝަން ކުންފުނިން އުފައްދާ ފިލްމު "ސިތާރޭ ޒަމީން ޕަރު"ގައި އެކްޓަރު ފެންނާނީ މީހުން އެހާ ބަލައިގަންނާނެ ކަހަލަ ކެރެކްޓާއަކުން ނޫން ކަމަށް އާމިރު ބުނެފިއެވެ
+2025-04-26 14:33:19,241 - INFO -     Content preview: ބޮލީވުޑްގެ އެކްޓަރު އާމިރު ޚާންގެ އަމިއްލަ ޕްރޮޑަކްޝަން ކުންފުނިން އުފައްދާ ފިލްމު "ސިތާރޭ ޒަމީން ޕަ...
+2025-04-26 14:33:19,241 - INFO -     Content length: 1474 chars, 173 words
+2025-04-26 14:33:19,241 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,241 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,241 - INFO -     Generated title: ބޮލީވުޑްގެ އެކްޓަރު އާމިރު ޚާންގެ އަމިއްލަ ޕްރޮޑަކްޝަން ކުންފުނިން އުފައްދާ ފިލްމު "ސިތާރޭ ޒަމީން ޕަރު"ގައި އެކްޓަރު ފެންނާނީ މީހުން އެހާ ބަލައިގަންނާނެ ކަހަލަ ކެރެކްޓާއަކުން ނޫން ކަމަށް އާމިރު ބުނެފިއެވެ
+2025-04-26 14:33:19,241 - INFO -     Would be included: True
+2025-04-26 14:33:19,244 - INFO -   Sample 2:
+2025-04-26 14:33:19,245 - INFO -     Title: ވޮޝިންޓަން (20 އެޕްރީލް 2025) : އެމެރިކާގެ ޔުނިވާސިޓީތަކުގައި ކިޔަވާ ދަރިވަރުންގެ ތެރެއިން
+2025-04-26 14:33:19,245 - INFO -     Content preview: ވޮޝިންޓަން (20 އެޕްރީލް 2025) : އެމެރިކާގެ ޔުނިވާސިޓީތަކުގައި ކިޔަވާ ދަރިވަރުންގެ ތެރެއިން، އިސްރާއީ...
+2025-04-26 14:33:19,245 - INFO -     Content length: 4606 chars, 442 words
+2025-04-26 14:33:19,245 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,245 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,245 - INFO -     Generated title: ވޮޝިންޓަން (20 އެޕްރީލް 2025) : އެމެރިކާގެ ޔުނިވާސިޓީތަކުގައި ކިޔަވާ ދަރިވަރުންގެ ތެރެއިން
+2025-04-26 14:33:19,246 - INFO -     Would be included: True
+2025-04-26 14:33:19,246 - INFO -   Sample 3:
+2025-04-26 14:33:19,246 - INFO -     Title: ދިވެހިރާއްޖޭގެ ކޯޓެއްގައި ފުރަތަމަ ފަހަރަށް 'ވިކްޓިމް އިމްޕެކްޓް ސްޓޭޓްމަންޓް' ނުވަތަ ވިކްޓިމްއަށް ކުރި އަސަރުގެ ބަޔާން ހުށަހެޅުމުގެ ފުރުސަތު ދީފިއެވެ
+2025-04-26 14:33:19,246 - INFO -     Content preview: ދިވެހިރާއްޖޭގެ ކޯޓެއްގައި ފުރަތަމަ ފަހަރަށް 'ވިކްޓިމް އިމްޕެކްޓް ސްޓޭޓްމަންޓް' ނުވަތަ ވިކްޓިމްއަށް ކ...
+2025-04-26 14:33:19,246 - INFO -     Content length: 2336 chars, 250 words
+2025-04-26 14:33:19,247 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,247 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,247 - INFO -     Generated title: ދިވެހިރާއްޖޭގެ ކޯޓެއްގައި ފުރަތަމަ ފަހަރަށް 'ވިކްޓިމް އިމްޕެކްޓް ސްޓޭޓްމަންޓް' ނުވަތަ ވިކްޓިމްއަށް ކުރި އަސަރުގެ ބަޔާން ހުށަހެޅުމުގެ ފުރުސަތު ދީފިއެވެ
+2025-04-26 14:33:19,247 - INFO -     Would be included: True
+2025-04-26 14:33:19,247 - INFO - Samples from mihaaru:
+2025-04-26 14:33:19,249 - INFO -   Sample 1:
+2025-04-26 14:33:19,249 - INFO -     Title: ކޭންގެ 60 ވަނަ ލަނޑާ އެކު ބެޔާން ލީގު ހޯދުމާ ގާތަށް
+2025-04-26 14:33:19,249 - INFO -     Content preview: 20 އެޕްރީލް 2025 - 09:41 ބެޔާން މިއުނިކަށް ކުޅޭ އިނގިރޭސި ކެޕްޓަން ހެރީ ކޭން ޖަރުމަން ލީގުގައި ކާމިޔ...
+2025-04-26 14:33:19,249 - INFO -     Content length: 1724 chars, 246 words
+2025-04-26 14:33:19,249 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,249 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,249 - INFO -     Would be included: True
+2025-04-26 14:33:19,250 - INFO -   Sample 2:
+2025-04-26 14:33:19,250 - INFO -     Title: ފުލުހަކު ޑަސްބިން ކޮތަޅުތަކެއްގައި ސިނގިރޭޓް ކާޓަންތަކެއް ނެރެނިކޮށް އެއާޕޯޓުން އަތުލައިގެންފި
+2025-04-26 14:33:19,250 - INFO -     Content preview: މުހައްމަދު.. ގުލްމާ ސަލީމު އިދުރީސް ސެލް ޓޯކް ދޯދި ޖުލައި2021 ކެކެކެކެކެކެކެކެކެކެ ބިންބި ސަހަރު ގުރ...
+2025-04-26 14:33:19,251 - INFO -     Content length: 133 chars, 16 words
+2025-04-26 14:33:19,251 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,251 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,251 - INFO -     Would be included: False
+2025-04-26 14:33:19,251 - INFO -   Sample 3:
+2025-04-26 14:33:19,251 - INFO -     Title: ކުށުގައި އުޅޭ ކުޑަކުދިން އިތުރުވާތީ ފުލުހުން ކަންބޮޑުވެއްޖެ
+2025-04-26 14:33:19,251 - INFO -     Content preview: ޕިންކީން ރަދުން އެމްސް ކަނުހުޅަނގު ޗޫޤީ މެކޭ ވާންޗޯޑި އަންހެނުންނާއި ފިރިހެނުން ހަމަހަމަ ވީމައި ވާގޮ...
+2025-04-26 14:33:19,252 - INFO -     Content length: 131 chars, 15 words
+2025-04-26 14:33:19,252 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,252 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,252 - INFO -     Would be included: False
+2025-04-26 14:33:19,252 - INFO - Samples from adhadhu:
+2025-04-26 14:33:19,253 - INFO -   Sample 1:
+2025-04-26 14:33:19,253 - INFO -     Title: ޓިކްޓޮކުގެ ވެރިންނާއެކު ބޭއްވި ބައްދަލުވުން: ޓިކްޓޮކަކީ އާމްދަނީ ހޯދަން މަޝްހޫރު ސޯޝަލް މީޑިއާ ޕްލެޓްފޯމެއް -- ފޮޓޯ: އިގްތިސާދީ މިނިސްޓްރީ
+2025-04-26 14:33:19,253 - INFO -     Content preview: ޓިކްޓޮކުގެ ވެރިންނާއެކު ބޭއްވި ބައްދަލުވުން: ޓިކްޓޮކަކީ އާމްދަނީ ހޯދަން މަޝްހޫރު ސޯޝަލް މީޑިއާ ޕްލެޓ...
+2025-04-26 14:33:19,253 - INFO -     Content length: 1351 chars, 155 words
+2025-04-26 14:33:19,253 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,253 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,254 - INFO -     Would be included: True
+2025-04-26 14:33:19,255 - INFO -   Sample 2:
+2025-04-26 14:33:19,255 - INFO -     Title: މާލޭގެ މަގެއްގެ މަތީގައި އުޅަނދު ދުއްވަނީ -- ފޮޓޯ: އަދަދު
+2025-04-26 14:33:19,255 - INFO -     Content preview: މާލޭގެ މަގެއްގެ މަތީގައި އުޅަނދު ދުއްވަނީ -- ފޮޓޯ: އަދަދު ރަށު ޕިކަޕު ފަދަ އުޅަނދުތައް ރަށްރަށުގައި ...
+2025-04-26 14:33:19,255 - INFO -     Content length: 2017 chars, 225 words
+2025-04-26 14:33:19,255 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,256 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,256 - INFO -     Would be included: True
+2025-04-26 14:33:19,256 - INFO -   Sample 3:
+2025-04-26 14:33:19,256 - INFO -     Title: :
+2025-04-26 14:33:19,256 - INFO -     Content preview: : 400 ' (). - . (), . . 25 . . . 2020.
+2025-04-26 14:33:19,256 - INFO -     Content length: 38 chars, 14 words
+2025-04-26 14:33:19,257 - INFO -     Is Dhivehi title: False
+2025-04-26 14:33:19,257 - INFO -     Is Dhivehi content: False
+2025-04-26 14:33:19,257 - INFO -     Would be included: False
+2025-04-26 14:33:19,257 - INFO - Samples from psm:
+2025-04-26 14:33:19,257 - INFO -   Sample 1:
+2025-04-26 14:33:19,257 - INFO -     Title: މަސްވެރިކަމުގެ ދާއިރާގެ ޢުމްރާނީ ވަޞީލަތްތައް ތަރައްޤީކުރަން ސަޢުދީ ފަންޑާއެކު މަޝްވަރާކޮށްފި
+2025-04-26 14:33:19,257 - INFO -     Content preview: ދިވެހި ޑޮކްޓަރުންގެ ޚިދުމަތް ޤައުމުގެ ކުރިއެރުމަށް ވަރަށް މުހިންމުކަމަށް ޞިއްޙީ ވަޒީރު ޢަބްދު ނާޡިމް...
+2025-04-26 14:33:19,257 - INFO -     Content length: 1158 chars, 117 words
+2025-04-26 14:33:19,257 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,259 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,259 - INFO -     Would be included: True
+2025-04-26 14:33:19,260 - INFO -   Sample 2:
+2025-04-26 14:33:19,260 - INFO -     Title: ނުކުޅެދުންތެރިކަން ހުންނަ މީހުންނަށްދޭ ފައިސާ ބައެއްފަހަރު ލަސްވަނީ މަޢުލޫމާތު ފުރިހަމަނުވާތީ: އެންސްޕާ
+2025-04-26 14:33:19,261 - INFO -     Content preview: މިއަހަރުގެ ތެރޭގައި އެއްފަހަރާ 2000އަށްވުރެ ގިނަ މަޝްރޫޢު ފެށިގެންދާނެކަން މިއަދު ޔަޤީންވެގެންދިޔަކަ...
+2025-04-26 14:33:19,261 - INFO -     Content length: 3481 chars, 311 words
+2025-04-26 14:33:19,261 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,261 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,261 - INFO -     Would be included: True
+2025-04-26 14:33:19,262 - INFO -   Sample 3:
+2025-04-26 14:33:19,262 - INFO -     Title: މަސްވެރިކަމުގެ ދާއިރާގެ ޢުމްރާނީ ވަޞީލަތްތައް ތަރައްޤީކުރަން ސަޢުދީ ފަންޑާއެކު މަޝްވަރާކޮށްފި
+2025-04-26 14:33:19,264 - INFO -     Content preview: ޔުއެފާ ޔޫރޮޕާ ލީގުގެ ކުއާޓާ ފައިނަލް ދެވަނަ ލެގުގައި ލިޔޯންއާ ދެކޮޅަށް ކުޅުނު މެޗުގެ ފަހު ވަގުތުގައި...
+2025-04-26 14:33:19,264 - INFO -     Content length: 2120 chars, 273 words
+2025-04-26 14:33:19,264 - INFO -     Is Dhivehi title: True
+2025-04-26 14:33:19,264 - INFO -     Is Dhivehi content: True
+2025-04-26 14:33:19,264 - INFO -     Would be included: True
+2025-04-26 14:33:19,692 - INFO - Processing statistics by source:
+2025-04-26 14:33:19,692 - INFO -   sun: 125 processed, 0 filtered, 0 non-Dhivehi (from 125 total), 125 with generated titles
+2025-04-26 14:33:19,692 - INFO -   mihaaru: 135 processed, 340 filtered, 0 non-Dhivehi (from 475 total)
+2025-04-26 14:33:19,693 - INFO -   adhadhu: 66 processed, 0 filtered, 51 non-Dhivehi (from 117 total)
+2025-04-26 14:33:19,693 - INFO -   psm: 274 processed, 0 filtered, 1 non-Dhivehi (from 275 total)
+2025-04-26 14:33:19,693 - INFO - Preprocessed 600 quality Dhivehi articles from all sources
+2025-04-26 14:33:19,693 - INFO - Filtered out: 340 low-quality articles, 52 non-Dhivehi articles
+2025-04-26 14:33:19,693 - INFO - Generated titles for 125 articles with missing or non-Dhivehi titles
+2025-04-26 14:33:19,943 - INFO - Saved 600 high-quality article files to backend/data/processed/articles
+2025-04-26 14:33:19,943 - INFO - Saved all processed articles to backend/data/processed/processed_articles.json
+2025-04-26 14:33:20,118 - INFO - Created 2400 formatted examples for Gemma 3 from Dhivehi articles
+2025-04-26 14:33:20,148 - INFO - Dataset split: Train=1920, Validation=240, Test=240
+2025-04-26 14:33:20,179 - INFO - Saved dataset files: backend/data/processed/gemma3/train.jsonl, backend/data/processed/gemma3/validation.jsonl, backend/data/processed/gemma3/test.jsonl
+2025-04-26 14:33:20,186 - INFO - Processing complete. Dhivehi dataset ready for Gemma 3 1B training.
+2025-04-26 14:33:20,186 - INFO - Training data: backend/data/processed/gemma3/train.jsonl
+2025-04-26 14:33:20,186 - INFO - Validation data: backend/data/processed/gemma3/validation.jsonl
+2025-04-26 14:33:20,186 - INFO - Test data: backend/data/processed/gemma3/test.jsonl
+2025-04-26 14:33:20,186 - INFO - Metadata: backend/data/processed/gemma3/metadata.json

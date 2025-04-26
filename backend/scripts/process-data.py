@@ -7,21 +7,50 @@ import logging
 from tqdm import tqdm
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import glob
+import sys
+import codecs
+
+# Fix console encoding for Windows to handle Dhivehi characters
+if sys.platform == 'win32':
+    # Force UTF-8 encoding for stdout and stderr
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
+# Create necessary directories
+os.makedirs('backend/data/processed', exist_ok=True)
+os.makedirs('backend/data/processed/logs', exist_ok=True)
+os.makedirs('backend/data/processed/gemma3', exist_ok=True)
+os.makedirs('backend/data/processed/articles', exist_ok=True)
 
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("backend/data/processed/processing.log"),
+        logging.FileHandler("backend/data/processed/logs/processing.log", encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 
-# Create necessary directories
-os.makedirs('backend/data/processed', exist_ok=True)
-os.makedirs('backend/data/processed/gemma', exist_ok=True)
-os.makedirs('backend/data/processed/articles', exist_ok=True)
+# Safe logging function to handle encoding errors
+def safe_log(message, level="info"):
+    try:
+        if level == "info":
+            logging.info(message)
+        elif level == "warning":
+            logging.warning(message)
+        elif level == "error":
+            logging.error(message)
+    except UnicodeEncodeError:
+        # Fall back to basic ASCII with replacements if there's an encoding error
+        ascii_message = message.encode('ascii', 'replace').decode('ascii')
+        if level == "info":
+            logging.info(ascii_message + " [Contains non-ASCII characters]")
+        elif level == "warning":
+            logging.warning(ascii_message + " [Contains non-ASCII characters]")
+        elif level == "error":
+            logging.error(ascii_message + " [Contains non-ASCII characters]")
 
 def keep_dhivehi_only(text):
     """Keep only Dhivehi characters, numerals, and essential punctuation"""
@@ -68,10 +97,14 @@ def clean_text(text):
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
     
-    # Remove common footer elements
-    text = re.sub(r'Copyright © \d+ Mihaaru.*', '', text)
-    text = re.sub(r"SMS 'sub mihaaru' to \d+", '', text)
+    # Remove common footer elements across different news sites
+    text = re.sub(r'Copyright © \d+ (Mihaaru|Sun|Raajje|Adhadhu|PSM).*', '', text)
+    text = re.sub(r"SMS 'sub (mihaaru|sun|raajje|adhadhu|psm)' to \d+", '', text)
     text = re.sub(r'Deliver popular news headlines to your inbox!.*', '', text)
+    
+    # Remove PSM specific footer
+    text = re.sub(r"Public Service Media\s+Radio Building, Ameenee Magu\s+Male', \d+, Republic of Maldives", '', text)
+    text = re.sub(r"© \d+ PSM News\. Public Service Media\. All rights reserved\.", '', text)
     
     # Remove job listings often found at end of articles
     text = re.sub(r'(Associate|Manager|Officer|Assistant|Treasury|FI-Manager|Compliance)( \([^)]+\))?,', '', text)
@@ -125,7 +158,6 @@ def is_dhivehi_text(text):
     dhivehi_percentage = (dhivehi_chars / total_chars) * 100
     
     # Text is considered Dhivehi if at least 95% of characters are in Thaana script
-    # Increased from 70% to 95% to be more strict about Dhivehi content
     return dhivehi_percentage >= 95
 
 def is_valid_content(text):
@@ -134,7 +166,7 @@ def is_valid_content(text):
         return False
         
     # Minimum length requirement
-    if len(text) < 200:
+    if len(text) < 100:
         return False
     
     # Check for sentence structure (at least some punctuation)
@@ -157,33 +189,66 @@ def is_valid_content(text):
     
     return True
 
-def load_articles(raw_data_dir='backend/data/raw'):
-    """Load all article JSON files from raw data directory"""
-    articles = []
+def load_all_articles(raw_data_dir='backend/data/raw'):
+    """Load articles from all 5 news websites"""
+    all_articles = []
+    site_counts = {}
     
-    # Get all JSON files that contain article data
-    json_files = [f for f in os.listdir(raw_data_dir) if f.endswith('.json') and 'mihaaru_article' in f]
+    # Define each news site's folder and article prefix pattern
+    news_sites = [
+        {'folder': 'sun', 'pattern': 'sun_article_*.json'},
+        {'folder': 'mihaaru', 'pattern': 'mihaaru_article_*.json'},
+        {'folder': 'raajje', 'pattern': 'raajje_article_*.json'},
+        {'folder': 'adhadhu', 'pattern': 'adhadhu_article_*.json'},
+        {'folder': 'psm', 'pattern': 'psm_article_*.json'}
+    ]
     
-    logging.info(f"Found {len(json_files)} article files to process")
+    for site in news_sites:
+        folder = site['folder']
+        pattern = site['pattern']
+        site_folder = os.path.join(raw_data_dir, folder)
+        
+        if not os.path.exists(site_folder):
+            safe_log(f"Directory {site_folder} does not exist, skipping.", "warning")
+            site_counts[folder] = 0
+            continue
+        
+        # Get all JSON files that match the pattern
+        file_pattern = os.path.join(site_folder, pattern)
+        json_files = glob.glob(file_pattern)
+        
+        safe_log(f"Found {len(json_files)} article files from {folder}")
+        site_articles = []
+        
+        for filename in tqdm(json_files, desc=f"Loading {folder} articles"):
+            try:
+                with open(filename, 'r', encoding='utf-8') as f:
+                    article_data = json.load(f)
+                    
+                    # Add source information
+                    article_data['source'] = folder
+                    
+                    # Only include articles with actual content
+                    if article_data and 'content' in article_data and len(article_data['content']) > 100:
+                        site_articles.append(article_data)
+            except Exception as e:
+                safe_log(f"Error loading {filename}: {str(e)}", "error")
+        
+        site_counts[folder] = len(site_articles)
+        all_articles.extend(site_articles)
     
-    for filename in tqdm(json_files, desc="Loading articles"):
-        try:
-            with open(os.path.join(raw_data_dir, filename), 'r', encoding='utf-8') as f:
-                article_data = json.load(f)
-                
-                # Only include articles with actual content
-                if article_data and 'content' in article_data and len(article_data['content']) > 100:
-                    articles.append(article_data)
-        except Exception as e:
-            logging.error(f"Error loading {filename}: {str(e)}")
+    # Log article counts by source
+    safe_log("Articles by source:")
+    for site, count in site_counts.items():
+        safe_log(f"  {site}: {count} articles")
     
-    logging.info(f"Successfully loaded {len(articles)} articles")
-    return articles
+    safe_log(f"Successfully loaded {len(all_articles)} total articles from all sources")
+    return all_articles
 
 def sample_and_check_article(article):
     """Debug function to check if an article meets quality criteria"""
     cleaned_content = clean_text(article['content'])
-    cleaned_title = clean_text(article['title'])
+    cleaned_title = clean_text(article.get('title', ''))
     
     # Count non-Dhivehi characters in original vs cleaned content
     original_non_dhivehi = sum(1 for char in article['content'] 
@@ -196,25 +261,43 @@ def sample_and_check_article(article):
                                    char in ".,;:!?-()[]{}\"'،" or 
                                    '\u0780' <= char <= '\u07BF'))
     
+    # For Sun articles missing title, check if we'd generate a valid title
+    if article.get('source') == 'sun' and (not cleaned_title or not is_dhivehi_text(cleaned_title)):
+        first_sentence = re.split(r'[.!?،]', cleaned_content)[0] if cleaned_content else ""
+        if len(first_sentence) > 15:
+            # Use first sentence as title
+            generated_title = first_sentence
+            has_generated_title = True
+        else:
+            # Use placeholder title in Dhivehi ("Sun News Article")
+            generated_title = "ސަން ނިއުސް އާޓިކަލް"
+            has_generated_title = True
+    else:
+        generated_title = None
+        has_generated_title = False
+    
     checks = {
-        "title_length_ok": len(cleaned_title) >= 15,
-        "content_length_ok": len(cleaned_content) >= 300,
+        "title_length_ok": len(cleaned_title) >= 15 if not has_generated_title else len(generated_title) >= 15,
+        "content_length_ok": len(cleaned_content) >= 100,
         "has_punctuation": bool(re.search(r'[.،:؛!?]', cleaned_content)),
         "word_count_ok": len(cleaned_content.split()) >= 30,
         "passes_validity_check": is_valid_content(cleaned_content),
-        "is_dhivehi_title": is_dhivehi_text(cleaned_title),
+        "is_dhivehi_title": is_dhivehi_text(cleaned_title) if not has_generated_title else True,
         "is_dhivehi_content": is_dhivehi_text(cleaned_content),
         "orig_non_dhivehi_chars": original_non_dhivehi,
-        "cleaned_non_dhivehi_chars": cleaned_non_dhivehi
+        "cleaned_non_dhivehi_chars": cleaned_non_dhivehi,
+        "has_generated_title": has_generated_title,
+        "generated_title": generated_title
     }
     
     return {
-        "title": cleaned_title,
-        "content_preview": cleaned_content[:100] + "...",
+        "source": article.get('source', 'unknown'),
+        "title": cleaned_title if not has_generated_title else generated_title,
+        "content_preview": cleaned_content[:100] + "..." if len(cleaned_content) > 100 else cleaned_content,
         "content_length": len(cleaned_content),
         "word_count": len(cleaned_content.split()),
         "quality_checks": checks,
-        "would_be_included": all([v for k, v in checks.items() if k != "orig_non_dhivehi_chars" and k != "cleaned_non_dhivehi_chars"])
+        "would_be_included": all([v for k, v in checks.items() if k not in ["orig_non_dhivehi_chars", "cleaned_non_dhivehi_chars", "has_generated_title", "generated_title"]])
     }
 
 def preprocess_articles(articles):
@@ -222,57 +305,91 @@ def preprocess_articles(articles):
     processed_articles = []
     filtered_count = 0
     non_dhivehi_count = 0
+    generated_titles_count = 0
+    source_stats = {}
     
     for article in tqdm(articles, desc="Preprocessing articles"):
         try:
-            # Skip if either title or content is missing
-            if not article.get('title') or not article.get('content'):
-                filtered_count += 1
-                continue
-                
-            # Clean article content with Dhivehi-only filter
-            cleaned_content = clean_text(article['content'])
+            source = article.get('source', 'unknown')
+            if source not in source_stats:
+                source_stats[source] = {'processed': 0, 'filtered': 0, 'non_dhivehi': 0, 'generated_titles': 0}
             
-            # Clean title with Dhivehi-only filter
-            cleaned_title = clean_text(article['title'])
+            # Clean article content with Dhivehi-only filter
+            cleaned_content = clean_text(article.get('content', ''))
             
             # Check if the content is primarily Dhivehi
             if not is_dhivehi_text(cleaned_content):
                 non_dhivehi_count += 1
-                continue
-                
-            # Also check if the title is in Dhivehi
-            if not is_dhivehi_text(cleaned_title):
-                non_dhivehi_count += 1
+                source_stats[source]['non_dhivehi'] += 1
                 continue
             
-            # Apply stricter quality checks
+            # Special handling for Sun articles with missing titles
+            if source == 'sun' and (not article.get('title') or not is_dhivehi_text(clean_text(article.get('title', '')))):
+                # Extract first sentence as title or use placeholder
+                sentences = re.split(r'[.!?،]', cleaned_content)
+                first_sentence = sentences[0] if sentences else ""
+                
+                if len(first_sentence) > 15:
+                    # Use first sentence as title if it's long enough
+                    cleaned_title = first_sentence
+                else:
+                    # Use placeholder title in Dhivehi ("Sun News Article")
+                    cleaned_title = "ސަން ނިއުސް އާޓިކަލް"
+                
+                generated_titles_count += 1
+                source_stats[source]['generated_titles'] += 1
+            else:
+                # Clean title with Dhivehi-only filter
+                cleaned_title = clean_text(article.get('title', ''))
+                
+                # Check if the title is in Dhivehi
+                if not is_dhivehi_text(cleaned_title):
+                    non_dhivehi_count += 1
+                    source_stats[source]['non_dhivehi'] += 1
+                    continue
+            
+            # Apply quality checks
             if len(cleaned_title) < 15:  # Title should be substantial
                 filtered_count += 1
+                source_stats[source]['filtered'] += 1
                 continue
                 
-            if len(cleaned_content) < 300:  # Content should be substantial
+            if len(cleaned_content) < 100:  # Content should be substantial
                 filtered_count += 1
+                source_stats[source]['filtered'] += 1
                 continue
                 
             if not is_valid_content(cleaned_content):
                 filtered_count += 1
+                source_stats[source]['filtered'] += 1
                 continue
             
-            # Create simplified article object with only title and content
+            # Create simplified article object with title, content and source
             processed_article = {
                 'title': cleaned_title,
-                'content': cleaned_content
+                'content': cleaned_content,
+                'source': source
             }
             
             processed_articles.append(processed_article)
+            source_stats[source]['processed'] += 1
             
         except Exception as e:
-            logging.error(f"Error preprocessing article: {str(e)}")
+            safe_log(f"Error preprocessing article: {str(e)}", "error")
             filtered_count += 1
     
-    logging.info(f"Preprocessed {len(processed_articles)} quality Dhivehi articles")
-    logging.info(f"Filtered out: {filtered_count} low-quality articles, {non_dhivehi_count} non-Dhivehi articles")
+    # Log statistics by source
+    safe_log("Processing statistics by source:")
+    for source, stats in source_stats.items():
+        total = stats['processed'] + stats['filtered'] + stats['non_dhivehi']
+        generated_titles_info = f", {stats['generated_titles']} with generated titles" if stats['generated_titles'] > 0 else ""
+        safe_log(f"  {source}: {stats['processed']} processed, {stats['filtered']} filtered, {stats['non_dhivehi']} non-Dhivehi (from {total} total){generated_titles_info}")
+    
+    safe_log(f"Preprocessed {len(processed_articles)} quality Dhivehi articles from all sources")
+    safe_log(f"Filtered out: {filtered_count} low-quality articles, {non_dhivehi_count} non-Dhivehi articles")
+    if generated_titles_count > 0:
+        safe_log(f"Generated titles for {generated_titles_count} articles with missing or non-Dhivehi titles")
+    
     return processed_articles
 
 def save_processed_articles(processed_articles):
@@ -290,16 +407,16 @@ def save_processed_articles(processed_articles):
     with open(processed_path, 'w', encoding='utf-8') as f:
         json.dump(processed_articles, f, ensure_ascii=False, indent=4)
     
-    logging.info(f"Saved {len(processed_articles)} high-quality article files to {processed_dir}")
-    logging.info(f"Saved all processed articles to {processed_path}")
+    safe_log(f"Saved {len(processed_articles)} high-quality article files to {processed_dir}")
+    safe_log(f"Saved all processed articles to {processed_path}")
 
-def format_for_gemma(articles):
-    """Format articles for Gemma 2B training with improved prompts for Dhivehi"""
+def format_for_gemma3(articles):
+    """Format articles for Gemma 3 1B training with improved prompts for Dhivehi"""
     formatted_data = []
     
-    for article in tqdm(articles, desc="Formatting for Gemma"):
+    for article in tqdm(articles, desc="Formatting for Gemma 3"):
         # Skip any problematic articles (extra safety check)
-        if not article.get('title') or not article.get('content') or len(article['content']) < 300:
+        if not article.get('title') or not article.get('content') or len(article['content']) < 100:
             continue
             
         # Extra check to ensure it's Dhivehi
@@ -308,135 +425,183 @@ def format_for_gemma(articles):
             
         # Format 1: Article generation from title
         title_format = {
-            "text": f"<start_of_turn>user\nGenerate a news article in Dhivehi with the title: {article['title']}<end_of_turn>\n\n<start_of_turn>model\n{article['content']}<end_of_turn>"
+            "messages": [
+                {"role": "user", "content": f"Generate a news article in Dhivehi with the title: {article['title']}"},
+                {"role": "assistant", "content": article['content']}
+            ]
         }
         
         # Format 2: Article summarization
         summary_format = {
-            "text": f"<start_of_turn>user\nSummarize the following Dhivehi news article:\n\n{article['content']}<end_of_turn>\n\n<start_of_turn>model\n{article['title']}<end_of_turn>"
+            "messages": [
+                {"role": "user", "content": f"Summarize the following Dhivehi news article:\n\n{article['content']}"},
+                {"role": "assistant", "content": article['title']}
+            ]
         }
         
-        # Format 3: News information extraction (improved)
+        # Format 3: News information extraction
         # Extract first sentence as a potential key point to make the task more concrete
         first_sentence = re.split(r'[.!?]', article['content'])[0] if article['content'] else ""
         
         info_format = {
-            "text": f"<start_of_turn>user\nExtract the key information from this Dhivehi news article:\n\n{article['content']}<end_of_turn>\n\n<start_of_turn>model\nTitle: {article['title']}\nKey points:\n- {first_sentence}\n- [Second key point extracted from content]\n- [Third key point extracted from content]<end_of_turn>"
+            "messages": [
+                {"role": "user", "content": f"Extract the key information from this Dhivehi news article:\n\n{article['content']}"},
+                {"role": "assistant", "content": f"Title: {article['title']}\nKey points:\n- {first_sentence}\n- [Additional key information from the article]\n- [Further important details from the text]"}
+            ]
         }
+        
+        # Format 4: Continue article from beginning
+        # Take first third of article as prompt and rest as completion
+        tokens = article['content'].split()
+        first_third = " ".join(tokens[:len(tokens)//3])
+        rest_of_article = " ".join(tokens[len(tokens)//3:])
+        
+        if len(first_third) > 100 and len(rest_of_article) > 100:  # Only if we have enough content
+            continuation_format = {
+                "messages": [
+                    {"role": "user", "content": f"Continue this Dhivehi news article:\n\n{first_third}"},
+                    {"role": "assistant", "content": rest_of_article}
+                ]
+            }
+            formatted_data.append(continuation_format)
         
         formatted_data.extend([title_format, summary_format, info_format])
     
-    logging.info(f"Created {len(formatted_data)} formatted examples for Gemma from Dhivehi articles")
+    safe_log(f"Created {len(formatted_data)} formatted examples for Gemma 3 from Dhivehi articles")
     return formatted_data
 
 def create_dataset(processed_articles):
-    """Create and split dataset for training"""
-    # Format data for Gemma 2B
-    formatted_data = format_for_gemma(processed_articles)
+    """Create and split dataset for training Gemma 3 1B"""
+    # Format data for Gemma 3
+    formatted_data = format_for_gemma3(processed_articles)
     
     # Create pandas DataFrame
-    df = pd.DataFrame(formatted_data)
+    df = pd.DataFrame({'json': [json.dumps(item, ensure_ascii=False) for item in formatted_data]})
     
     # Split into train, validation, and test sets (80%, 10%, 10%)
     train_df, temp_df = train_test_split(df, test_size=0.2, random_state=42)
     val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
     
-    logging.info(f"Dataset split: Train={len(train_df)}, Validation={len(val_df)}, Test={len(test_df)}")
+    safe_log(f"Dataset split: Train={len(train_df)}, Validation={len(val_df)}, Test={len(test_df)}")
     
     # Save as JSONL files (one JSON object per line)
-    train_path = 'backend/data/processed/gemma/train.jsonl'
-    val_path = 'backend/data/processed/gemma/validation.jsonl'
-    test_path = 'backend/data/processed/gemma/test.jsonl'
+    train_path = 'backend/data/processed/gemma3/train.jsonl'
+    val_path = 'backend/data/processed/gemma3/validation.jsonl'
+    test_path = 'backend/data/processed/gemma3/test.jsonl'
     
-    train_df.to_json(train_path, orient='records', lines=True, force_ascii=False)
-    val_df.to_json(val_path, orient='records', lines=True, force_ascii=False)
-    test_df.to_json(test_path, orient='records', lines=True, force_ascii=False)
+    with open(train_path, 'w', encoding='utf-8') as f:
+        for json_str in train_df['json']:
+            f.write(json_str + '\n')
+            
+    with open(val_path, 'w', encoding='utf-8') as f:
+        for json_str in val_df['json']:
+            f.write(json_str + '\n')
+            
+    with open(test_path, 'w', encoding='utf-8') as f:
+        for json_str in test_df['json']:
+            f.write(json_str + '\n')
     
-    logging.info(f"Saved dataset files: {train_path}, {val_path}, {test_path}")
+    safe_log(f"Saved dataset files: {train_path}, {val_path}, {test_path}")
     
     # Also save a few examples as plain text for inspection
-    with open('backend/data/processed/gemma/examples.txt', 'w', encoding='utf-8') as f:
+    with open('backend/data/processed/gemma3/examples.txt', 'w', encoding='utf-8') as f:
         f.write(f"DATASET EXAMPLES (Generated {datetime.now().strftime('%Y-%m-%d')})\n\n")
         f.write("="*80 + "\n\n")
         
-        for i, example in enumerate(train_df.head(5).to_dict('records')):
+        for i, json_str in enumerate(train_df.head(5)['json']):
+            example = json.loads(json_str)
             f.write(f"EXAMPLE {i+1}:\n")
-            f.write(example['text'])
-            f.write("\n\n" + "="*80 + "\n\n")
+            for message in example['messages']:
+                f.write(f"{message['role'].upper()}: {message['content']}\n\n")
+            f.write("="*80 + "\n\n")
     
     # Create metadata file
     metadata = {
-        'dataset_name': 'mihaaru_news_corpus',
+        'dataset_name': 'dhivehi_news_corpus',
         'version': '1.0',
         'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'description': 'Processed Dhivehi news articles for LLM training (title and content only)',
+        'description': 'Processed Dhivehi news articles from multiple sources for Gemma 3 1B training',
         'language': 'Dhivehi',
         'num_examples': len(formatted_data),
-        'fields': ['title', 'content'],
+        'sources': list(set([article.get('source', 'unknown') for article in processed_articles])),
         'split_sizes': {
             'train': len(train_df),
             'validation': len(val_df),
             'test': len(test_df)
         },
-        'format': 'JSONL with text field for Gemma 2B training'
+        'format': 'JSONL with chat format for Gemma 3 1B training'
     }
     
-    with open('backend/data/processed/gemma/metadata.json', 'w', encoding='utf-8') as f:
+    with open('backend/data/processed/gemma3/metadata.json', 'w', encoding='utf-8') as f:
         json.dump(metadata, f, ensure_ascii=False, indent=4)
     
     return {
         'train': train_path,
         'validation': val_path,
         'test': test_path,
-        'metadata': 'backend/data/processed/gemma/metadata.json'
+        'metadata': 'backend/data/processed/gemma3/metadata.json'
     }
 
 def main():
-    logging.info("Starting Dhivehi article processing for Gemma 2B training")
+    safe_log("Starting Dhivehi article processing for Gemma 3 1B training")
     
-    # Step 1: Load raw article data
-    articles = load_articles()
+    # Step 1: Load raw article data from all sources
+    articles = load_all_articles()
     
-    # Optional: Sample a few articles to check quality filtering
-    if len(articles) > 0:
-        sample_size = min(5, len(articles))
-        sample_articles = random.sample(articles, sample_size)
+    # Optional: Sample a few articles from each source to check quality filtering
+    if articles:
+        # Group articles by source
+        articles_by_source = {}
+        for article in articles:
+            source = article.get('source', 'unknown')
+            if source not in articles_by_source:
+                articles_by_source[source] = []
+            articles_by_source[source].append(article)
         
-        logging.info("Quality check on sample articles:")
-        for i, article in enumerate(sample_articles):
-            check_result = sample_and_check_article(article)
-            logging.info(f"Sample {i+1}:")
-            logging.info(f"  Title: {check_result['title']}")
-            logging.info(f"  Content preview: {check_result['content_preview']}")
-            logging.info(f"  Content length: {check_result['content_length']} chars, {check_result['word_count']} words")
-            logging.info(f"  Quality checks: {check_result['quality_checks']}")
-            logging.info(f"  Is Dhivehi title: {check_result['quality_checks']['is_dhivehi_title']}")
-            logging.info(f"  Is Dhivehi content: {check_result['quality_checks']['is_dhivehi_content']}")
-            logging.info(f"  Original non-Dhivehi chars: {check_result['quality_checks']['orig_non_dhivehi_chars']}")
-            logging.info(f"  Cleaned non-Dhivehi chars: {check_result['quality_checks']['cleaned_non_dhivehi_chars']}")
-            logging.info(f"  Would be included: {check_result['would_be_included']}")
+        # Sample from each source
+        safe_log("Quality check on sample articles by source:")
+        for source, source_articles in articles_by_source.items():
+            sample_size = min(3, len(source_articles))
+            if sample_size > 0:
+                sample_articles = random.sample(source_articles, sample_size)
+                
+                safe_log(f"Samples from {source}:")
+                for i, article in enumerate(sample_articles):
+                    check_result = sample_and_check_article(article)
+                    safe_log(f"  Sample {i+1}:")
+                    safe_log(f"    Title: {check_result['title']}")
+                    safe_log(f"    Content preview: {check_result['content_preview']}")
+                    safe_log(f"    Content length: {check_result['content_length']} chars, {check_result['word_count']} words")
+                    safe_log(f"    Is Dhivehi title: {check_result['quality_checks']['is_dhivehi_title']}")
+                    safe_log(f"    Is Dhivehi content: {check_result['quality_checks']['is_dhivehi_content']}")
+                    
+                    # Show generated title info if applicable
+                    if check_result['quality_checks'].get('has_generated_title', False):
+                        safe_log(f"    Generated title: {check_result['quality_checks']['generated_title']}")
+                    
+                    safe_log(f"    Would be included: {check_result['would_be_included']}")
     
-    # Step 2: Clean and preprocess articles with improved quality filtering and Dhivehi detection
+    # Step 2: Clean and preprocess articles
     processed_articles = preprocess_articles(articles)
     
     # Check if we have enough quality Dhivehi articles
-    if len(processed_articles) < 50:
-        logging.warning(f"Only {len(processed_articles)} Dhivehi articles passed quality checks. Consider relaxing criteria if this is too few.")
+    if len(processed_articles) < 100:
+        safe_log(f"Only {len(processed_articles)} Dhivehi articles passed quality checks. Consider relaxing criteria.", "warning")
     
     # Step 3: Save each processed article separately
     save_processed_articles(processed_articles)
     
-    # Step 4: Create and save training dataset
+    # Step 4: Create and save training dataset for Gemma 3 1B
     if len(processed_articles) > 0:
         dataset_paths = create_dataset(processed_articles)
         
-        logging.info(f"Processing complete. Dhivehi dataset ready for Gemma 2B training.")
-        logging.info(f"Training data: {dataset_paths['train']}")
-        logging.info(f"Validation data: {dataset_paths['validation']}")
-        logging.info(f"Test data: {dataset_paths['test']}")
-        logging.info(f"Metadata: {dataset_paths['metadata']}")
+        safe_log("Processing complete. Dhivehi dataset ready for Gemma 3 1B training.")
+        safe_log(f"Training data: {dataset_paths['train']}")
+        safe_log(f"Validation data: {dataset_paths['validation']}")
+        safe_log(f"Test data: {dataset_paths['test']}")
+        safe_log(f"Metadata: {dataset_paths['metadata']}")
     else:
-        logging.error("No Dhivehi articles passed quality checks. Cannot create training dataset.")
+        safe_log("No Dhivehi articles passed quality checks. Cannot create training dataset.", "error")
 
 if __name__ == "__main__":
     main()
