@@ -9,13 +9,6 @@ import json
 from peft import PeftModel, PeftConfig
 import gc
 import nltk
-from rouge_score import rouge_scorer
-
-# Download NLTK resources if not already present
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
 
 # Load environment variables
 load_dotenv()
@@ -128,18 +121,18 @@ class ModelEvaluator:
         else:
             return float('inf')
     
-    def generate_response(self, prompt, max_length=100):
-        """Generate a response from the model."""
-        # Add instruction if not present
-        if "ދިވެހި ބަހުން ޖަވާބު ދޭށެވެ" not in prompt:
-            prompt = f"ޖަވާބު ދިވެހިބަހުން ދޭށެވެ (Please respond in Dhivehi)\n{prompt}"
+    def generate_response(self, prompt, max_new_tokens=100, language_instruction=None):
+        """Generate a response from the model with optional language instruction."""
+        # Add language instruction if provided
+        if language_instruction:
+            prompt = f"{language_instruction}\n{prompt}"
         
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
-                max_length=max_length,
+                max_new_tokens=max_new_tokens,
                 num_return_sequences=1,
                 temperature=0.7,
                 top_p=0.9,
@@ -150,101 +143,6 @@ class ModelEvaluator:
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         # Return only the generated part (removing the prompt)
         return response[len(prompt):].strip()
-    
-    def calculate_rouge_score(self, validation_data, num_samples=20):
-        """Calculate ROUGE scores using reference and hypothesis texts."""
-        # Initialize rouge scorer with all metrics
-        scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
-        
-        references = []
-        hypotheses = []
-        rouge_scores = {
-            'rouge1': {'precision': [], 'recall': [], 'fmeasure': []},
-            'rouge2': {'precision': [], 'recall': [], 'fmeasure': []},
-            'rougeL': {'precision': [], 'recall': [], 'fmeasure': []}
-        }
-        
-        print(f"Calculating ROUGE scores on {min(num_samples, len(validation_data))} samples")
-        
-        for i, example in enumerate(tqdm(validation_data[:num_samples], desc="Generating for ROUGE")):
-            try:
-                # Safety check for data type
-                if not isinstance(example, dict):
-                    print(f"Skipping example {i}: not a dictionary, type: {type(example)}")
-                    continue
-                
-                # Extract text from the example
-                text = self.extract_text_for_evaluation(example)
-                if not text:
-                    continue
-                
-                # Extract assistant responses as references
-                reference_text = ""
-                if "messages" in example:
-                    messages = example["messages"]
-                    if isinstance(messages, str):
-                        try:
-                            messages = json.loads(messages)
-                        except:
-                            continue
-                    
-                    for message in messages:
-                        if isinstance(message, dict) and "role" in message and message["role"] == "assistant":
-                            reference_text = message["content"]
-                            break
-                elif "summary" in example:
-                    reference_text = example["summary"]
-                
-                if reference_text:
-                    # Get the prompt from user message
-                    prompt = text[:200]  # Using part of the user message as prompt
-                    
-                    # Generate model response
-                    hypothesis_text = self.generate_response(prompt, max_length=150)
-                    
-                    # Add to lists for later reference
-                    references.append(reference_text)
-                    hypotheses.append(hypothesis_text)
-                    
-                    # Calculate ROUGE scores for this example
-                    scores = scorer.score(reference_text, hypothesis_text)
-                    
-                    # Store scores
-                    for metric, score in scores.items():
-                        rouge_scores[metric]['precision'].append(score.precision)
-                        rouge_scores[metric]['recall'].append(score.recall)
-                        rouge_scores[metric]['fmeasure'].append(score.fmeasure)
-                    
-                    # Clear memory periodically
-                    if i % 5 == 0:
-                        torch.cuda.empty_cache()
-            
-            except Exception as e:
-                print(f"Error processing example {i} for ROUGE: {str(e)}")
-                continue
-        
-        # Calculate average ROUGE scores
-        avg_rouge_scores = {}
-        for metric in rouge_scores:
-            avg_rouge_scores[metric] = {
-                'precision': sum(rouge_scores[metric]['precision']) / len(rouge_scores[metric]['precision']) if rouge_scores[metric]['precision'] else 0,
-                'recall': sum(rouge_scores[metric]['recall']) / len(rouge_scores[metric]['recall']) if rouge_scores[metric]['recall'] else 0,
-                'fmeasure': sum(rouge_scores[metric]['fmeasure']) / len(rouge_scores[metric]['fmeasure']) if rouge_scores[metric]['fmeasure'] else 0
-            }
-        
-        # Print results
-        print("\nROUGE Score Results:")
-        for metric, scores in avg_rouge_scores.items():
-            print(f"{metric} - Precision: {scores['precision']:.4f}, Recall: {scores['recall']:.4f}, F1: {scores['fmeasure']:.4f}")
-        
-        # Return detailed results
-        return {
-            'avg_scores': avg_rouge_scores,
-            'num_samples': len(references),
-            'all_scores': rouge_scores,
-            # Include sample texts for reference
-            'sample_pairs': [{'reference': ref, 'hypothesis': hyp} for ref, hyp in zip(references[:5], hypotheses[:5])]
-        }
     
     def extract_text_for_evaluation(self, example):
         """Extract text for evaluation from different data formats."""
@@ -293,55 +191,370 @@ class ModelEvaluator:
             print(f"Error extracting text: {str(e)}")
             return ""
     
-    def run_perplexity_and_rouge_evaluation(self, validation_data_path):
-        """Run only perplexity and ROUGE evaluation"""
-        print("Loading validation data...")
+    def evaluate_glue(self, task_name="cola", batch_size=8, max_samples=100):
+        """
+        Evaluate the model on a GLUE benchmark task.
         
-        # Check if validation data file exists
-        if not os.path.exists(validation_data_path):
-            raise FileNotFoundError(f"Validation data file not found: {validation_data_path}")
+        Args:
+            task_name: Name of the GLUE task ('cola', 'sst2', 'mrpc', 'qqp', 'mnli', etc.)
+            batch_size: Batch size for evaluation
+            max_samples: Maximum number of samples to evaluate
+            
+        Returns:
+            Dictionary with task metrics
+        """
+        print(f"Evaluating on GLUE {task_name.upper()}...")
         
-        # Load validation data
-        validation_examples = []
-        with open(validation_data_path, 'r', encoding='utf-8') as f:
-            for line in f:
+        # Load dataset
+        try:
+            dataset = load_dataset("glue", task_name, split="validation")
+            print(f"Loaded {len(dataset)} examples from {task_name}")
+        except Exception as e:
+            print(f"Error loading GLUE dataset {task_name}: {e}")
+            return {"error": str(e)}
+        
+        # Take a subset if requested
+        if max_samples and max_samples < len(dataset):
+            dataset = dataset.select(range(max_samples))
+            print(f"Using {max_samples} examples for evaluation")
+        
+        # Prepare task-specific prompt templates and metrics
+        task_configs = {
+            "cola": {
+                "prompt": "Is the following sentence grammatically correct? Answer 'acceptable' or 'unacceptable'.\nSentence: {}\n",
+                "label_map": {0: "unacceptable", 1: "acceptable"},
+                "metrics": ["accuracy", "matthews_correlation"]
+            },
+            "sst2": {
+                "prompt": "Is the sentiment of this movie review positive or negative?\nReview: {}\nSentiment: ",
+                "label_map": {0: "negative", 1: "positive"},
+                "metrics": ["accuracy"]
+            },
+            "mrpc": {
+                "prompt": "Are these two sentences paraphrases of each other? Answer 'yes' or 'no'.\nSentence 1: {}\nSentence 2: {}\n",
+                "label_map": {0: "no", 1: "yes"},
+                "metrics": ["accuracy", "f1"]
+            },
+            "qqp": {
+                "prompt": "Are these two questions asking the same thing? Answer 'yes' or 'no'.\nQuestion 1: {}\nQuestion 2: {}\n",
+                "label_map": {0: "no", 1: "yes"},
+                "metrics": ["accuracy", "f1"]
+            },
+            "mnli": {
+                "prompt": "Does the premise entail the hypothesis? Answer 'entailment', 'contradiction', or 'neutral'.\nPremise: {}\nHypothesis: {}\n",
+                "label_map": {0: "entailment", 1: "neutral", 2: "contradiction"},
+                "metrics": ["accuracy"]
+            },
+            "rte": {
+                "prompt": "Does the premise entail the hypothesis? Answer 'entailment' or 'not_entailment'.\nPremise: {}\nHypothesis: {}\n",
+                "label_map": {0: "entailment", 1: "not_entailment"},
+                "metrics": ["accuracy"]
+            }
+        }
+        
+        if task_name not in task_configs:
+            print(f"Task {task_name} not supported. Supported tasks: {list(task_configs.keys())}")
+            return {"error": f"Task {task_name} not supported"}
+        
+        config = task_configs[task_name]
+        results = {metric: 0.0 for metric in config["metrics"]}
+        
+        # Prepare inputs based on task
+        inputs = []
+        gold_labels = []
+        
+        for example in dataset:
+            if task_name == "cola" or task_name == "sst2":
+                prompt = config["prompt"].format(example["sentence"])
+                inputs.append(prompt)
+            elif task_name == "mrpc":
+                prompt = config["prompt"].format(example["sentence1"], example["sentence2"])
+                inputs.append(prompt)
+            elif task_name == "qqp":
+                prompt = config["prompt"].format(example["question1"], example["question2"])
+                inputs.append(prompt)
+            elif task_name == "mnli" or task_name == "rte":
+                prompt = config["prompt"].format(example["premise"], example["hypothesis"])
+                inputs.append(prompt)
+            
+            gold_labels.append(example["label"])
+        
+        # Generate predictions
+        predictions = []
+        for i in tqdm(range(0, len(inputs), batch_size), desc=f"Evaluating {task_name}"):
+            batch_inputs = inputs[i:i + batch_size]
+            batch_predictions = []
+            
+            for prompt in batch_inputs:
+                response = self.generate_response(prompt, max_new_tokens=50)
+                batch_predictions.append(response.strip().lower())
+            
+            predictions.extend(batch_predictions)
+            
+            # Clear memory
+            torch.cuda.empty_cache()
+        
+        # Map text predictions to label ids
+        label_map_reverse = {v.lower(): k for k, v in config["label_map"].items()}
+        pred_labels = []
+        
+        for pred in predictions:
+            # Check for any match with label words
+            label_found = False
+            for label_text, label_id in label_map_reverse.items():
+                if label_text in pred.lower():
+                    pred_labels.append(label_id)
+                    label_found = True
+                    break
+            
+            # If no label word found, use most similar
+            if not label_found:
+                # Default to first label as fallback
+                pred_labels.append(list(label_map_reverse.values())[0])
+        
+        # Calculate metrics
+        if "accuracy" in config["metrics"]:
+            correct = sum(p == g for p, g in zip(pred_labels, gold_labels))
+            accuracy = correct / len(gold_labels) if gold_labels else 0
+            results["accuracy"] = accuracy
+        
+        if "f1" in config["metrics"]:
+            # Calculate F1 for class 1 (positive class)
+            true_positives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 1)
+            false_positives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 0)
+            false_negatives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 1)
+            
+            precision = true_positives / (true_positives + false_positives) if true_positives + false_positives > 0 else 0
+            recall = true_positives / (true_positives + false_negatives) if true_positives + false_negatives > 0 else 0
+            
+            f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+            results["f1"] = f1
+        
+        if "matthews_correlation" in config["metrics"]:
+            # Calculate Matthews correlation coefficient
+            tp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 1)
+            tn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 0)
+            fp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 0)
+            fn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 1)
+            
+            numerator = (tp * tn) - (fp * fn)
+            denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
+            
+            mcc = numerator / denominator if denominator > 0 else 0
+            results["matthews_correlation"] = mcc
+        
+        # Save some example predictions for debugging
+        examples = []
+        for i in range(min(5, len(inputs))):
+            examples.append({
+                "input": inputs[i],
+                "prediction": predictions[i],
+                "pred_label": pred_labels[i],
+                "gold_label": gold_labels[i],
+                "correct": pred_labels[i] == gold_labels[i]
+            })
+        
+        results["examples"] = examples
+        results["total_samples"] = len(inputs)
+        
+        # Print results summary
+        print(f"\n=== GLUE {task_name.upper()} Results ===")
+        for metric, value in results.items():
+            if metric != "examples":
+                print(f"{metric}: {value:.4f}")
+        
+        return results
+    
+    def evaluate_hellaswag(self, max_samples=100, batch_size=4):
+        """
+        Evaluate the model on the HellaSwag benchmark.
+        
+        HellaSwag tests if a model can complete a sentence with the correct ending.
+        
+        Args:
+            max_samples: Maximum number of samples to evaluate
+            batch_size: Batch size for evaluation
+            
+        Returns:
+            Dictionary with metrics
+        """
+        print("Evaluating on HellaSwag...")
+        
+        try:
+            # Load HellaSwag dataset with trust_remote_code=True
+            dataset = load_dataset("hellaswag", trust_remote_code=True)
+            validation_dataset = dataset['validation']
+            print(f"Loaded {len(validation_dataset)} examples from HellaSwag")
+            
+            # Debug the first example to see its structure
+            if len(validation_dataset) > 0:
+                first_example = validation_dataset[0]
+                print(f"Example structure sample: {first_example.keys()}")
+        except Exception as e:
+            print(f"Error loading HellaSwag dataset: {e}")
+            return {"error": str(e)}
+        
+        # Take a subset if requested
+        if max_samples and max_samples < len(validation_dataset):
+            indices = list(range(max_samples))
+            validation_subset = validation_dataset.select(indices)
+            print(f"Using {max_samples} examples for evaluation")
+        else:
+            validation_subset = validation_dataset
+        
+        correct_predictions = 0
+        examples = []
+        
+        for i in tqdm(range(0, len(validation_subset), batch_size), desc="Evaluating HellaSwag"):
+            batch_indices = list(range(i, min(i + batch_size, len(validation_subset))))
+            batch = [validation_subset[j] for j in batch_indices]
+            
+            for example in batch:
                 try:
-                    example = json.loads(line.strip())
-                    validation_examples.append(example)
-                except json.JSONDecodeError as e:
-                    print(f"Error parsing JSON line: {e}")
+                    # Format the prompt with context and activity label
+                    context = example["ctx_a"] if "ctx_a" in example else example.get("ctx", "")
+                    activity_label = example.get("activity_label", "")
+                    
+                    prompt = f"Activity: {activity_label}\nContext: {context}\nComplete the sentence with the most appropriate ending:\n"
+                    
+                    # Get the endings
+                    endings = example["endings"]
+                    correct_ending_idx = int(example["label"]) if "label" in example else 0
+                    
+                    # For scoring purposes, we'll ask the model to rank the endings
+                    ending_scores = []
+                    
+                    for j, ending in enumerate(endings):
+                        full_prompt = f"{prompt}{ending}"
+                        
+                        try:
+                            # Calculate perplexity for this ending
+                            inputs = self.tokenizer(full_prompt, return_tensors="pt").to(self.device)
+                            
+                            with torch.no_grad():
+                                outputs = self.model(**inputs, labels=inputs["input_ids"])
+                                loss = outputs.loss.item()
+                                
+                            # Lower perplexity (loss) is better
+                            ending_scores.append((j, loss))
+                        except Exception as e:
+                            print(f"Error processing ending {j}: {str(e)}")
+                            # Assign a high loss (bad score) to problematic endings
+                            ending_scores.append((j, float('inf')))
+                    
+                    # Sort by perplexity (lower is better)
+                    ending_scores.sort(key=lambda x: x[1])
+                    predicted_ending_idx = ending_scores[0][0]  # Get the index with lowest perplexity
+                    
+                    # Check if prediction is correct
+                    is_correct = predicted_ending_idx == correct_ending_idx
+                    if is_correct:
+                        correct_predictions += 1
+                    
+                    # Save this example for debugging if needed
+                    if len(examples) < 5:
+                        examples.append({
+                            "context": context,
+                            "activity": activity_label,
+                            "endings": endings,
+                            "predicted_idx": predicted_ending_idx,
+                            "correct_idx": correct_ending_idx,
+                            "is_correct": is_correct
+                        })
+                except Exception as e:
+                    print(f"Error processing example: {str(e)}")
                     continue
+                
+                # Clear memory
+                torch.cuda.empty_cache()
         
-        print(f"Loaded {len(validation_examples)} validation examples")
+        # Calculate accuracy
+        accuracy = correct_predictions / len(validation_subset) if validation_subset else 0
         
-        # Extract texts for perplexity calculation
-        texts = []
-        for example in validation_examples:
-            text = self.extract_text_for_evaluation(example)
-            if text:
-                texts.append(text)
+        results = {
+            "accuracy": accuracy,
+            "total_samples": len(validation_subset),
+            "correct_predictions": correct_predictions,
+            "examples": examples
+        }
         
-        print(f"Extracted {len(texts)} valid text samples for evaluation")
+        # Print results summary
+        print("\n=== HellaSwag Results ===")
+        print(f"Accuracy: {accuracy:.4f}")
+        print(f"Correct: {correct_predictions}/{len(validation_subset)}")
+        
+        return results
+    
+    def run_evaluation(self, validation_data_path=None):
+        """Run comprehensive evaluation including perplexity, GLUE and HellaSwag"""
+        print("Starting comprehensive evaluation...")
         
         # Results dictionary
         results = {}
         
-        # Calculate perplexity
-        print("\n1. Calculating perplexity...")
-        perplexity = self.calculate_perplexity(texts[:10], batch_size=1)
-        print(f"Perplexity: {perplexity:.4f}")
-        results["perplexity"] = perplexity
+        # 1. Calculate perplexity if validation data is provided
+        if validation_data_path:
+            print("\n1. Calculating perplexity...")
+            
+            # Check if validation data file exists
+            if not os.path.exists(validation_data_path):
+                print(f"Warning: Validation data file not found: {validation_data_path}")
+                print("Skipping perplexity evaluation.")
+            else:
+                # Load validation data
+                validation_examples = []
+                with open(validation_data_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        try:
+                            example = json.loads(line.strip())
+                            validation_examples.append(example)
+                        except json.JSONDecodeError as e:
+                            print(f"Error parsing JSON line: {e}")
+                            continue
+                
+                print(f"Loaded {len(validation_examples)} validation examples")
+                
+                # Extract texts for perplexity calculation
+                texts = []
+                for example in validation_examples:
+                    text = self.extract_text_for_evaluation(example)
+                    if text:
+                        texts.append(text)
+                
+                print(f"Extracted {len(texts)} valid text samples for evaluation")
+                
+                # Calculate perplexity on a subset to save time
+                num_perplexity_samples = min(10, len(texts))
+                perplexity = self.calculate_perplexity(texts[:num_perplexity_samples], batch_size=1)
+                print(f"Perplexity: {perplexity:.4f}")
+                results["perplexity"] = perplexity
+                
+                # Clear memory
+                torch.cuda.empty_cache()
         
-        # Clear memory
-        torch.cuda.empty_cache()
+        # 2. Evaluate on GLUE benchmarks
+        print("\n2. Running GLUE benchmark evaluations...")
+        glue_results = {}
+        # Choose a subset of GLUE tasks
+        glue_tasks = ["cola", "sst2"]  # Add more if memory allows
         
-        # Calculate ROUGE score
-        print("\n2. Calculating ROUGE scores...")
-        rouge_results = self.calculate_rouge_score(validation_examples, num_samples=10)
-        results["rouge"] = rouge_results
+        for task in glue_tasks:
+            print(f"\nEvaluating GLUE task: {task}")
+            task_results = self.evaluate_glue(task_name=task, max_samples=50)
+            glue_results[task] = task_results
+            
+            # Clear memory
+            torch.cuda.empty_cache()
+        
+        results["glue"] = glue_results
+        
+        # 3. Evaluate on HellaSwag
+        print("\n3. Running HellaSwag evaluation...")
+        hellaswag_results = self.evaluate_hellaswag(max_samples=50)
+        results["hellaswag"] = hellaswag_results
         
         # Save results to file
-        output_path = "perplexity_rouge_results.json"
+        output_path = "comprehensive_evaluation_results.json"
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         
@@ -349,11 +562,19 @@ class ModelEvaluator:
         
         # Print summary
         print("\n=== Evaluation Summary ===")
-        print(f"Perplexity: {perplexity:.4f}")
-        print("ROUGE scores:")
-        for metric, scores in rouge_results['avg_scores'].items():
-            print(f"  {metric} - F1: {scores['fmeasure']:.4f}")
-        print(f"Number of samples evaluated for ROUGE: {rouge_results['num_samples']}")
+        if "perplexity" in results:
+            print(f"Perplexity: {results['perplexity']:.4f}")
+        
+        print("GLUE benchmark results:")
+        for task, task_results in results.get("glue", {}).items():
+            if "accuracy" in task_results:
+                print(f"  {task} accuracy: {task_results['accuracy']:.4f}")
+        
+        # Check if hellaswag results contain accuracy before trying to print it
+        if 'hellaswag' in results and 'accuracy' in results.get('hellaswag', {}):
+            print(f"HellaSwag accuracy: {results['hellaswag']['accuracy']:.4f}")
+        else:
+            print("HellaSwag accuracy: Not available")
         
         return results
 
@@ -386,9 +607,9 @@ if __name__ == "__main__":
         print("Initializing evaluator...")
         evaluator = ModelEvaluator(model_path)
         
-        # Run perplexity and ROUGE evaluation
-        print("Running perplexity and ROUGE evaluation...")
-        results = evaluator.run_perplexity_and_rouge_evaluation(validation_data_path_abs)
+        # Run comprehensive evaluation
+        print("Running comprehensive evaluation...")
+        results = evaluator.run_evaluation(validation_data_path_abs)
         
     except Exception as e:
         print(f"Error during evaluation: {str(e)}")

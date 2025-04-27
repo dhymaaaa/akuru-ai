@@ -3,3 +3,7 @@
 *.csv
 *.json
 *.jsonl
+*.pth
+*.pt
+*.bin
+*.safetensors

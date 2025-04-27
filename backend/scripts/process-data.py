@@ -164,10 +164,6 @@ def is_valid_content(text):
     """Check if content appears to be a valid article rather than random words or names"""
     if not text:
         return False
-        
-    # Minimum length requirement
-    if len(text) < 100:
-        return False
     
     # Check for sentence structure (at least some punctuation)
     if not re.search(r'[.،:؛!?]', text):
@@ -229,7 +225,7 @@ def load_all_articles(raw_data_dir='backend/data/raw'):
                     article_data['source'] = folder
                     
                     # Only include articles with actual content
-                    if article_data and 'content' in article_data and len(article_data['content']) > 100:
+                    if article_data and 'content' in article_data:
                         site_articles.append(article_data)
             except Exception as e:
                 safe_log(f"Error loading {filename}: {str(e)}", "error")
@@ -278,7 +274,6 @@ def sample_and_check_article(article):
     
     checks = {
         "title_length_ok": len(cleaned_title) >= 15 if not has_generated_title else len(generated_title) >= 15,
-        "content_length_ok": len(cleaned_content) >= 100,
         "has_punctuation": bool(re.search(r'[.،:؛!?]', cleaned_content)),
         "word_count_ok": len(cleaned_content.split()) >= 30,
         "passes_validity_check": is_valid_content(cleaned_content),
@@ -354,11 +349,6 @@ def preprocess_articles(articles):
                 source_stats[source]['filtered'] += 1
                 continue
                 
-            if len(cleaned_content) < 100:  # Content should be substantial
-                filtered_count += 1
-                source_stats[source]['filtered'] += 1
-                continue
-                
             if not is_valid_content(cleaned_content):
                 filtered_count += 1
                 source_stats[source]['filtered'] += 1
@@ -416,7 +406,7 @@ def format_for_gemma3(articles):
     
     for article in tqdm(articles, desc="Formatting for Gemma 3"):
         # Skip any problematic articles (extra safety check)
-        if not article.get('title') or not article.get('content') or len(article['content']) < 100:
+        if not article.get('title') or not article.get('content'):
             continue
             
         # Extra check to ensure it's Dhivehi
@@ -548,38 +538,38 @@ def main():
     # Step 1: Load raw article data from all sources
     articles = load_all_articles()
     
-    # Optional: Sample a few articles from each source to check quality filtering
-    if articles:
-        # Group articles by source
-        articles_by_source = {}
-        for article in articles:
-            source = article.get('source', 'unknown')
-            if source not in articles_by_source:
-                articles_by_source[source] = []
-            articles_by_source[source].append(article)
+    # # Optional: Sample a few articles from each source to check quality filtering
+    # if articles:
+    #     # Group articles by source
+    #     articles_by_source = {}
+    #     for article in articles:
+    #         source = article.get('source', 'unknown')
+    #         if source not in articles_by_source:
+    #             articles_by_source[source] = []
+    #         articles_by_source[source].append(article)
         
-        # Sample from each source
-        safe_log("Quality check on sample articles by source:")
-        for source, source_articles in articles_by_source.items():
-            sample_size = min(3, len(source_articles))
-            if sample_size > 0:
-                sample_articles = random.sample(source_articles, sample_size)
+    #     # Sample from each source
+    #     safe_log("Quality check on sample articles by source:")
+    #     for source, source_articles in articles_by_source.items():
+    #         sample_size = min(3, len(source_articles))
+    #         if sample_size > 0:
+    #             sample_articles = random.sample(source_articles, sample_size)
                 
-                safe_log(f"Samples from {source}:")
-                for i, article in enumerate(sample_articles):
-                    check_result = sample_and_check_article(article)
-                    safe_log(f"  Sample {i+1}:")
-                    safe_log(f"    Title: {check_result['title']}")
-                    safe_log(f"    Content preview: {check_result['content_preview']}")
-                    safe_log(f"    Content length: {check_result['content_length']} chars, {check_result['word_count']} words")
-                    safe_log(f"    Is Dhivehi title: {check_result['quality_checks']['is_dhivehi_title']}")
-                    safe_log(f"    Is Dhivehi content: {check_result['quality_checks']['is_dhivehi_content']}")
+    #             safe_log(f"Samples from {source}:")
+    #             for i, article in enumerate(sample_articles):
+    #                 check_result = sample_and_check_article(article)
+    #                 safe_log(f"  Sample {i+1}:")
+    #                 safe_log(f"    Title: {check_result['title']}")
+    #                 safe_log(f"    Content preview: {check_result['content_preview']}")
+    #                 safe_log(f"    Content length: {check_result['content_length']} chars, {check_result['word_count']} words")
+    #                 safe_log(f"    Is Dhivehi title: {check_result['quality_checks']['is_dhivehi_title']}")
+    #                 safe_log(f"    Is Dhivehi content: {check_result['quality_checks']['is_dhivehi_content']}")
                     
-                    # Show generated title info if applicable
-                    if check_result['quality_checks'].get('has_generated_title', False):
-                        safe_log(f"    Generated title: {check_result['quality_checks']['generated_title']}")
+    #                 # Show generated title info if applicable
+    #                 if check_result['quality_checks'].get('has_generated_title', False):
+    #                     safe_log(f"    Generated title: {check_result['quality_checks']['generated_title']}")
                     
-                    safe_log(f"    Would be included: {check_result['would_be_included']}")
+    #                 safe_log(f"    Would be included: {check_result['would_be_included']}")
     
     # Step 2: Clean and preprocess articles
     processed_articles = preprocess_articles(articles)
