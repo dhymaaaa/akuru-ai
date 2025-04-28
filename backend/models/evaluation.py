@@ -8,7 +8,6 @@ import numpy as np
 import json
 from peft import PeftModel, PeftConfig
 import gc
-import nltk
 
 # Load environment variables
 load_dotenv()
@@ -191,26 +190,25 @@ class ModelEvaluator:
             print(f"Error extracting text: {str(e)}")
             return ""
     
-    def evaluate_glue(self, task_name="cola", batch_size=8, max_samples=100):
+    def evaluate_cola(self, batch_size=8, max_samples=100):
         """
-        Evaluate the model on a GLUE benchmark task.
+        Evaluate the model on the CoLA (Corpus of Linguistic Acceptability) task.
         
         Args:
-            task_name: Name of the GLUE task ('cola', 'sst2', 'mrpc', 'qqp', 'mnli', etc.)
             batch_size: Batch size for evaluation
             max_samples: Maximum number of samples to evaluate
             
         Returns:
             Dictionary with task metrics
         """
-        print(f"Evaluating on GLUE {task_name.upper()}...")
+        print(f"Evaluating on CoLA...")
         
         # Load dataset
         try:
-            dataset = load_dataset("glue", task_name, split="validation")
-            print(f"Loaded {len(dataset)} examples from {task_name}")
+            dataset = load_dataset("glue", "cola", split="validation")
+            print(f"Loaded {len(dataset)} examples from CoLA")
         except Exception as e:
-            print(f"Error loading GLUE dataset {task_name}: {e}")
+            print(f"Error loading CoLA dataset: {e}")
             return {"error": str(e)}
         
         # Take a subset if requested
@@ -218,70 +216,22 @@ class ModelEvaluator:
             dataset = dataset.select(range(max_samples))
             print(f"Using {max_samples} examples for evaluation")
         
-        # Prepare task-specific prompt templates and metrics
-        task_configs = {
-            "cola": {
-                "prompt": "Is the following sentence grammatically correct? Answer 'acceptable' or 'unacceptable'.\nSentence: {}\n",
-                "label_map": {0: "unacceptable", 1: "acceptable"},
-                "metrics": ["accuracy", "matthews_correlation"]
-            },
-            "sst2": {
-                "prompt": "Is the sentiment of this movie review positive or negative?\nReview: {}\nSentiment: ",
-                "label_map": {0: "negative", 1: "positive"},
-                "metrics": ["accuracy"]
-            },
-            "mrpc": {
-                "prompt": "Are these two sentences paraphrases of each other? Answer 'yes' or 'no'.\nSentence 1: {}\nSentence 2: {}\n",
-                "label_map": {0: "no", 1: "yes"},
-                "metrics": ["accuracy", "f1"]
-            },
-            "qqp": {
-                "prompt": "Are these two questions asking the same thing? Answer 'yes' or 'no'.\nQuestion 1: {}\nQuestion 2: {}\n",
-                "label_map": {0: "no", 1: "yes"},
-                "metrics": ["accuracy", "f1"]
-            },
-            "mnli": {
-                "prompt": "Does the premise entail the hypothesis? Answer 'entailment', 'contradiction', or 'neutral'.\nPremise: {}\nHypothesis: {}\n",
-                "label_map": {0: "entailment", 1: "neutral", 2: "contradiction"},
-                "metrics": ["accuracy"]
-            },
-            "rte": {
-                "prompt": "Does the premise entail the hypothesis? Answer 'entailment' or 'not_entailment'.\nPremise: {}\nHypothesis: {}\n",
-                "label_map": {0: "entailment", 1: "not_entailment"},
-                "metrics": ["accuracy"]
-            }
-        }
+        # Prepare prompt template and metrics
+        prompt_template = "Is the following sentence grammatically correct? Answer 'acceptable' or 'unacceptable'.\nSentence: {}\n"
+        label_map = {0: "unacceptable", 1: "acceptable"}
         
-        if task_name not in task_configs:
-            print(f"Task {task_name} not supported. Supported tasks: {list(task_configs.keys())}")
-            return {"error": f"Task {task_name} not supported"}
-        
-        config = task_configs[task_name]
-        results = {metric: 0.0 for metric in config["metrics"]}
-        
-        # Prepare inputs based on task
+        # Prepare inputs
         inputs = []
         gold_labels = []
         
         for example in dataset:
-            if task_name == "cola" or task_name == "sst2":
-                prompt = config["prompt"].format(example["sentence"])
-                inputs.append(prompt)
-            elif task_name == "mrpc":
-                prompt = config["prompt"].format(example["sentence1"], example["sentence2"])
-                inputs.append(prompt)
-            elif task_name == "qqp":
-                prompt = config["prompt"].format(example["question1"], example["question2"])
-                inputs.append(prompt)
-            elif task_name == "mnli" or task_name == "rte":
-                prompt = config["prompt"].format(example["premise"], example["hypothesis"])
-                inputs.append(prompt)
-            
+            prompt = prompt_template.format(example["sentence"])
+            inputs.append(prompt)
             gold_labels.append(example["label"])
         
         # Generate predictions
         predictions = []
-        for i in tqdm(range(0, len(inputs), batch_size), desc=f"Evaluating {task_name}"):
+        for i in tqdm(range(0, len(inputs), batch_size), desc="Evaluating CoLA"):
             batch_inputs = inputs[i:i + batch_size]
             batch_predictions = []
             
@@ -295,7 +245,7 @@ class ModelEvaluator:
             torch.cuda.empty_cache()
         
         # Map text predictions to label ids
-        label_map_reverse = {v.lower(): k for k, v in config["label_map"].items()}
+        label_map_reverse = {v.lower(): k for k, v in label_map.items()}
         pred_labels = []
         
         for pred in predictions:
@@ -307,41 +257,26 @@ class ModelEvaluator:
                     label_found = True
                     break
             
-            # If no label word found, use most similar
+            # If no label word found, use default
             if not label_found:
                 # Default to first label as fallback
                 pred_labels.append(list(label_map_reverse.values())[0])
         
         # Calculate metrics
-        if "accuracy" in config["metrics"]:
-            correct = sum(p == g for p, g in zip(pred_labels, gold_labels))
-            accuracy = correct / len(gold_labels) if gold_labels else 0
-            results["accuracy"] = accuracy
+        # Accuracy
+        correct = sum(p == g for p, g in zip(pred_labels, gold_labels))
+        accuracy = correct / len(gold_labels) if gold_labels else 0
         
-        if "f1" in config["metrics"]:
-            # Calculate F1 for class 1 (positive class)
-            true_positives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 1)
-            false_positives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 0)
-            false_negatives = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 1)
-            
-            precision = true_positives / (true_positives + false_positives) if true_positives + false_positives > 0 else 0
-            recall = true_positives / (true_positives + false_negatives) if true_positives + false_negatives > 0 else 0
-            
-            f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
-            results["f1"] = f1
+        # Matthews correlation coefficient
+        tp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 1)
+        tn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 0)
+        fp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 0)
+        fn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 1)
         
-        if "matthews_correlation" in config["metrics"]:
-            # Calculate Matthews correlation coefficient
-            tp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 1)
-            tn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 0)
-            fp = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 1 and g == 0)
-            fn = sum(1 for p, g in zip(pred_labels, gold_labels) if p == 0 and g == 1)
-            
-            numerator = (tp * tn) - (fp * fn)
-            denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
-            
-            mcc = numerator / denominator if denominator > 0 else 0
-            results["matthews_correlation"] = mcc
+        numerator = (tp * tn) - (fp * fn)
+        denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
+        
+        mcc = numerator / denominator if denominator > 0 else 0
         
         # Save some example predictions for debugging
         examples = []
@@ -354,14 +289,17 @@ class ModelEvaluator:
                 "correct": pred_labels[i] == gold_labels[i]
             })
         
-        results["examples"] = examples
-        results["total_samples"] = len(inputs)
+        results = {
+            "accuracy": accuracy,
+            "matthews_correlation": mcc,
+            "examples": examples,
+            "total_samples": len(inputs)
+        }
         
         # Print results summary
-        print(f"\n=== GLUE {task_name.upper()} Results ===")
-        for metric, value in results.items():
-            if metric != "examples":
-                print(f"{metric}: {value:.4f}")
+        print("\n=== CoLA Results ===")
+        print(f"Accuracy: {accuracy:.4f}")
+        print(f"Matthews Correlation: {mcc:.4f}")
         
         return results
     
@@ -486,8 +424,8 @@ class ModelEvaluator:
         return results
     
     def run_evaluation(self, validation_data_path=None):
-        """Run comprehensive evaluation including perplexity, GLUE and HellaSwag"""
-        print("Starting comprehensive evaluation...")
+        """Run evaluation including perplexity, CoLA and HellaSwag"""
+        print("Starting evaluation...")
         
         # Results dictionary
         results = {}
@@ -532,21 +470,13 @@ class ModelEvaluator:
                 # Clear memory
                 torch.cuda.empty_cache()
         
-        # 2. Evaluate on GLUE benchmarks
-        print("\n2. Running GLUE benchmark evaluations...")
-        glue_results = {}
-        # Choose a subset of GLUE tasks
-        glue_tasks = ["cola", "sst2"]  # Add more if memory allows
+        # 2. Evaluate on CoLA
+        print("\n2. Running CoLA evaluation...")
+        cola_results = self.evaluate_cola(max_samples=50)
+        results["cola"] = cola_results
         
-        for task in glue_tasks:
-            print(f"\nEvaluating GLUE task: {task}")
-            task_results = self.evaluate_glue(task_name=task, max_samples=50)
-            glue_results[task] = task_results
-            
-            # Clear memory
-            torch.cuda.empty_cache()
-        
-        results["glue"] = glue_results
+        # Clear memory
+        torch.cuda.empty_cache()
         
         # 3. Evaluate on HellaSwag
         print("\n3. Running HellaSwag evaluation...")
@@ -554,7 +484,7 @@ class ModelEvaluator:
         results["hellaswag"] = hellaswag_results
         
         # Save results to file
-        output_path = "comprehensive_evaluation_results.json"
+        output_path = "evaluation_results.json"
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         
@@ -565,16 +495,14 @@ class ModelEvaluator:
         if "perplexity" in results:
             print(f"Perplexity: {results['perplexity']:.4f}")
         
-        print("GLUE benchmark results:")
-        for task, task_results in results.get("glue", {}).items():
-            if "accuracy" in task_results:
-                print(f"  {task} accuracy: {task_results['accuracy']:.4f}")
+        # Print CoLA results
+        if "cola" in results and "accuracy" in results["cola"]:
+            print(f"CoLA accuracy: {results['cola']['accuracy']:.4f}")
+            print(f"CoLA Matthews correlation: {results['cola']['matthews_correlation']:.4f}")
         
-        # Check if hellaswag results contain accuracy before trying to print it
-        if 'hellaswag' in results and 'accuracy' in results.get('hellaswag', {}):
+        # Print HellaSwag results
+        if "hellaswag" in results and "accuracy" in results["hellaswag"]:
             print(f"HellaSwag accuracy: {results['hellaswag']['accuracy']:.4f}")
-        else:
-            print("HellaSwag accuracy: Not available")
         
         return results
 
@@ -607,8 +535,8 @@ if __name__ == "__main__":
         print("Initializing evaluator...")
         evaluator = ModelEvaluator(model_path)
         
-        # Run comprehensive evaluation
-        print("Running comprehensive evaluation...")
+        # Run evaluation
+        print("Running evaluation...")
         results = evaluator.run_evaluation(validation_data_path_abs)
         
     except Exception as e:
