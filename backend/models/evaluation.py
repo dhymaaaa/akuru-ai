@@ -93,7 +93,7 @@ class ModelEvaluator:
                     return_tensors="pt",
                     padding=True,
                     truncation=True,
-                    max_length=256  # Reduced from 512
+                    max_length=256 
                 ).to(self.device)
                 
                 try:
