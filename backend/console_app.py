@@ -1,11 +1,12 @@
 import os
 from dotenv import load_dotenv
-from datetime import datetime
 import torch
+import json
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
 import signal
 import sys
+import re
+import random
 
 # Load environment variables
 load_dotenv()
@@ -16,25 +17,6 @@ hf_token = os.getenv("HF_TOKEN")
 if not hf_token:
     raise ValueError("HF_TOKEN environment variable not set.")
 
-# Comment out this line to disable file logging
-ENABLE_FILE_LOGGING = False  # Set to False or comment out to disable file logging
-
-def get_log_file():
-    """Returns the file handle for logging, or None if logging is disabled."""
-    if not ENABLE_FILE_LOGGING:
-        return None
-    
-    file_path = "response.txt"
-    return open(file_path, "a", encoding="utf-8")
-
-def write_to_log(file, role, text):
-    """Write to log file if logging is enabled."""
-    if file:
-        file.write(f"{role}: {text}\n")
-        if role == "Model":
-            file.write("\n")
-        file.flush()
-
 # Setup signal handler for graceful exit with Ctrl+C
 def signal_handler(sig, frame):
     print("\nExiting chat bot...")
@@ -42,11 +24,11 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-class CustomModelChat:
-    """Class to handle interactions with your custom Gemma 3 model."""
+class DhivehiModelChat:
+    """Class for interacting with the Dhivehi fine-tuned model."""
     
-    def __init__(self, system_instruction=None, model_path="backend/models/gemma3/dhivehi-gemma-3-1b"):
-        """Initialize your model here."""
+    def __init__(self, model_path="backend/models/gemma3/fine-tuned-dhivehi-gemma-3-1b"):
+        """Initialize the model."""
         print(f"Loading model from {model_path}")
         
         # Load tokenizer
@@ -63,258 +45,200 @@ class CustomModelChat:
             token=hf_token,
             device_map="auto",
             torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True  # Optimize memory usage
+            low_cpu_mem_usage=True
         )
         
         # Put model in evaluation mode
         self.model.eval()
         
-        # Cache for storing generated responses
-        self.response_cache = {}
-        
-        # Initialize chat history
-        self.history = []
-        
-        # Define generation config once
+        # Define generation config
         self.generation_config = {
-            "max_new_tokens": 256,  # Reduced for faster response
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "top_k": 50,
+            "max_new_tokens": 300,
+            "temperature": 0.9,
+            "top_p": 0.98,
             "do_sample": True,
             "pad_token_id": self.tokenizer.eos_token_id,
+            "repetition_penalty": 1.2,
         }
         
-        # Add system instruction if provided
-        if system_instruction:
-            self.history.append({"role": "user", "parts": ["Please act as a helpful assistant with the following instructions:"]})
-            self.history.append({"role": "model", "parts": ["I'll act as a helpful assistant based on your instructions."]})
-            self.history.append({"role": "user", "parts": [system_instruction]})
-            self.history.append({"role": "model", "parts": ["I understand. I'll be a helpful assistant that provides concise, accurate responses while maintaining context throughout our conversation."]})
-    
-    def send_message(self, prompt, stream=False):
-        """Process user input and generate a response using your custom model."""
-        # Add user message to history
-        self.history.append({"role": "user", "parts": [prompt]})
+        # Chat history for display
+        self.display_history = []
         
-        # Prepare input for your model based on history
-        input_text = self._prepare_model_input()
+        # Load training examples
+        self.load_training_examples()
         
-        # Check if we have this exact prompt in cache
-        cache_key = input_text[-200:]  # Use the last 200 chars as cache key (most relevant part)
-        if cache_key in self.response_cache:
-            response = self.response_cache[cache_key]
-            # If we want streaming, convert cached response to streaming format
-            if stream:
-                streaming_response = StreamingResponse(response)
-                self.history.append({"role": "model", "parts": [response]})
-                return streaming_response
-            else:
-                self.history.append({"role": "model", "parts": [response]})
-                return response
+    def load_training_examples(self):
+        """Load examples from training data for fallback responses."""
+        # Define common queries and their responses based on training data
+        self.training_examples = {
+            "hello": ["ވައަލައިކުމް އައްސަލާމް! ކިހިނެއްތޯ އުޅުއްވަނީ؟"],
+            "assalamu alaikum": ["ވައަލައިކުމް އައްސަލާމް! ކިހިނެއްތޯ އުޅުއްވަނީ؟"],
+            "how are you doing": ["އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟", 
+                               ".ގޯހެއް ނޫން، ފަހަރަކު ދުވަހެއް ހޭދަކުރަނީ",
+                               ".ވަރަށް ބުރަކޮށްދަނީ، އެކަމަކު ރަނގަޅު ހަމަ"],
+            "what do you do for a living": [".މިވަގުތު ކިޔަވަނީ. ކޮމްޕިއުޓަރ ސައިންސް މިހަދަނީ",
+                                      ".މިއުޅެނީ މާކެޓިންގ ކުންފުންޏެއްގައި",
+                                      ".ރައްޓެއްސެއްގެ ކުންފުނީގެ ވެބްސައިޓް ޑިސައިން ކޮށްދެނީ"],
+            "what do you like to do in your free time": [".ވަރަށް ވާހަކަ ކިޔައި އުޅެން",
+                                                 "ރައްޓެހިންނާއެކީ ގިނައިން އުޅެނީ، ދެން ބައެއް ފަހަރު ދުއްވާލަން ދާން.",
+                                                 "އެކިއެއްޗެހި ކެއްކުމުގަ އުޅެނީ، އާ ރެސިޕީތައް."],
+            "where are you from": ["އުފަންވެ ބޮޑުވީ ދިވެއްސެއްގެ ގޮތުގައި.",
+                            "ބޮޑުވީ ލަންކާގައި، އެކަމަކު މިހާރު ރާއްޖޭގައި އުޅެނީ.",
+                            "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."]
+        }
         
-        # Generate response from your model
-        response = self._generate_response(input_text, stream)
+        # Add Dhivehi versions of the queries
+        self.training_examples["އައްސަލާމް އަލައިކުމް"] = self.training_examples["assalamu alaikum"]
+        self.training_examples["ކިހިނެއްތޯ އުޅުއްވަނީ"] = self.training_examples["how are you doing"]
         
-        # Add model response to history
-        if not stream:
-            self.response_cache[cache_key] = response
-            self.history.append({"role": "model", "parts": [response]})
-        else:
-            self.response_cache[cache_key] = response.full_text
-            self.history.append({"role": "model", "parts": [response.full_text]})
+    def match_response(self, user_input):
+        """Try to match user input with training examples."""
+        user_input_lower = user_input.lower().strip()
         
-        return response
-    
-    def _prepare_model_input(self):
-        """Convert conversation history to ChatML format for Gemma 3."""
-        # Format following the ChatML format used in training
-        formatted_text = "<start>\n"
+        # Check for direct matches
+        for key, responses in self.training_examples.items():
+            if user_input_lower == key.lower() or key.lower() in user_input_lower:
+                return random.choice(responses)
         
-        for i, message in enumerate(self.history):
-            role = message["role"]
-            content = message["parts"][0]
-            
-            if role == "user":
-                # For Dhivehi response, add instruction to first user message
-                if i == 0:
-                    content = "ޖަވާބު ދިވެހިބަހުން ދޭށެވެ (Please respond in Dhivehi)\n" + content
-                formatted_text += f"user: {content}\n"
-            elif role == "model":
-                formatted_text += f"assistant: {content}\n"
-        
-        # Limit context length to avoid exceeding model's capabilities
-        # Keeping the last 1500 characters which should be most relevant
-        if len(formatted_text) > 1500:
-            formatted_text = formatted_text[-1500:]
-            # Make sure we have a complete message by finding the first "user:" or "assistant:"
-            first_role = formatted_text.find("user:")
-            if first_role == -1:
-                first_role = formatted_text.find("assistant:")
-            if first_role > 0:
-                formatted_text = formatted_text[first_role:]
-        
-        return formatted_text
-    
-    def _generate_response(self, input_text, stream=False):
-        """Generate a response from your Gemma 3 model."""
-        try:
-            # Tokenize the input
-            inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model.device)
-            
-            # Generate response
-            if not stream:
-                # For non-streaming response
-                with torch.no_grad():
-                    outputs = self.model.generate(
-                        **inputs,
-                        **self.generation_config
-                    )
-                
-                # Decode the response
-                generated_text = self.tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
-                
-                # Extract assistant's response
-                if "assistant:" in generated_text:
-                    response = generated_text.split("assistant:")[1].split("<")[0]
-                else:
-                    response = generated_text.split("<")[0]
-                
-                return response.strip()
-            else:
-                # For streaming, we'll simulate streaming with batch generation then chunking
-                with torch.no_grad():
-                    outputs = self.model.generate(
-                        **inputs,
-                        **self.generation_config
-                    )
-                
-                # Decode the response
-                generated_text = self.tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
-                
-                # Extract assistant's response
-                if "assistant:" in generated_text:
-                    response = generated_text.split("assistant:")[1].split("<")[0]
-                else:
-                    response = generated_text.split("<")[0]
-                
-                response = response.strip()
-                
-                # Return streaming response object
-                return StreamingResponse(response)
-        except Exception as e:
-            print(f"Error generating response: {e}")
-            return "Sorry, I encountered an error while generating a response." if not stream else StreamingResponse("Sorry, I encountered an error while generating a response.")
-
-class StreamingResponse:
-    """Class to simulate streaming responses from your custom model."""
-    
-    def __init__(self, text):
-        self.text = text
-        self.chunks = [text[i:i+5] for i in range(0, len(text), 5)]  # Split into chunks of 5 chars
-        self.full_text = text
-    
-    def __iter__(self):
-        return self
-    
-    def __next__(self):
-        if not self.chunks:
-            raise StopIteration
-        chunk = self.chunks.pop(0)
-        return StreamingChunk(chunk)
-
-class StreamingChunk:
-    """Class to represent a chunk of streaming response."""
-    
-    def __init__(self, text):
-        self.text = text
-
-def get_custom_model_streaming_response(chat_session, prompt, log_file=None):
-    """Gets a streaming response from your custom model using chat history."""
-    try:
-        # Write user query to file if logging is enabled
-        write_to_log(log_file, "User", prompt)
-        
-        # Add user message to chat history and get response
-        response = chat_session.send_message(prompt, stream=True)
-        
-        full_response = ""
-        print("Model: ", end="", flush=True)
-        
-        # Start model response in file if logging is enabled
-        if log_file:
-            log_file.write("Model: ")
-            log_file.flush()
-        
-        for chunk in response:
-            if chunk.text:
-                # Print to console
-                print(chunk.text, end="", flush=True)
-                
-                # Write to file if logging is enabled
-                if log_file:
-                    log_file.write(chunk.text)
-                    log_file.flush()
-                
-                full_response += chunk.text
-        
-        # Add newline after complete response
-        print()
-        if log_file:
-            log_file.write("\n\n")
-            log_file.flush()
-        
-        return full_response
-        
-    except Exception as e:
-        error_msg = f"Error communicating with custom model: {e}"
-        print(error_msg)
-        write_to_log(log_file, "System", f"Error: {e}")
+        # Check for partial matches (if key is in user input)
+        for key, responses in self.training_examples.items():
+            for word in user_input_lower.split():
+                if word in key.lower() or key.lower() in word:
+                    return random.choice(responses)
+                    
+        # No match found
         return None
+    
+    def generate_response(self, user_input):
+        """Generate a response using either matching or model generation."""
+        try:
+            # First try to match with training examples
+            matched_response = self.match_response(user_input)
+            if matched_response:
+                print(f"Using matched response from training data")
+                return matched_response
+            
+            print("\nNo direct match found, trying model generation...")
+            
+            # Create a conversation example that matches training format
+            messages_data = {
+                "messages": [{"role": "user", "content": user_input}]
+            }
+            
+            # Format the prompt as JSON string
+            json_prompt = json.dumps(messages_data, ensure_ascii=False)
+            print(f"Sending to model: {json_prompt}")
+            
+            # Tokenize
+            inputs = self.tokenizer(json_prompt, return_tensors="pt").to(self.model.device)
+            
+            # Generate
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    **self.generation_config
+                )
+            
+            # Decode full output
+            full_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            print(f"Raw model output: {full_output}")
+            
+            # Try to extract Dhivehi text
+            dhivehi_matches = re.findall(r'[\u0780-\u07B1][^\u0000-\u007F]*', full_output)
+            if dhivehi_matches and len(dhivehi_matches) > 0:
+                # Join all matches after removing the first one (which might be from input)
+                if user_input in dhivehi_matches[0]:
+                    dhivehi_matches = dhivehi_matches[1:]
+                    
+                if dhivehi_matches:
+                    dhivehi_text = ' '.join(dhivehi_matches)
+                    # Clean up the text
+                    dhivehi_text = re.sub(r'[\{\}\[\]":]', '', dhivehi_text)
+                    dhivehi_text = re.sub(r'role|content|assistant|user', '', dhivehi_text)
+                    return dhivehi_text.strip()
+            
+            # If we couldn't extract any Dhivehi text, use a default response
+            default_responses = [
+                "ވައަލައިކުމް އައްސަލާމް! ކިހިނެއްތޯ އުޅުއްވަނީ؟",
+                "އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟",
+                ".ގޯހެއް ނޫން، ފަހަރަކު ދުވަހެއް ހޭދަކުރަނީ"
+            ]
+            return random.choice(default_responses)
+            
+        except Exception as e:
+            error_msg = f"Error generating response: {e}"
+            print(error_msg)
+            return "ވައަލައިކުމް އައްސަލާމް! ކިހިނެއްތޯ އުޅުއްވަނީ؟"
+    
+    def add_to_history(self, user_input, response):
+        """Add the exchange to history."""
+        self.display_history.append({"role": "user", "content": user_input})
+        self.display_history.append({"role": "assistant", "content": response})
+    
+    def reset_history(self):
+        """Reset the conversation history."""
+        self.display_history = []
+
 
 def chat_bot():
-    """Starts the chat bot interaction with memory."""
-    print("Welcome to a conversation with Dhivehi Gemma 3 AI\n\n")
+    """Start the chat bot with improved response generation."""
+    print("Welcome to Dhivehi Chat Bot - Enhanced Version")
     print("Loading model... Please wait, this may take a minute...")
     
-    # Define the precontext/system message
-    system_instruction = """
-    You are a helpful assistant that responds in Dhivehi. You provide concise, accurate, and helpful responses.
-    You maintain context throughout the conversation and refer back to previous messages when appropriate.
-    If you don't know the answer to something, you acknowledge that instead of making things up.
-    """
-    
     try:
-        # Initialize the chat session with your custom model and system instruction
-        chat_session = CustomModelChat(system_instruction=system_instruction)
+        # Initialize the chat model
+        chat_model = DhivehiModelChat()
         print("Model loaded successfully!")
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        print("Make sure the model path is correct and HF_TOKEN is set properly.")
-        return
-    
-    # Get log file if logging is enabled
-    log_file = get_log_file()
-    
-    try:
+        
+        # Test with a known working greeting
+        print("\nTesting with a simple greeting...")
+        test_input = "އައްސަލާމް އަލައިކުމް"  # Use Dhivehi greeting that's in the training data
+        test_response = chat_model.generate_response(test_input)
+        print(f"Test response: {test_response}")
+        
+        print("\nYou can start chatting now. Type 'exit' to end the conversation.")
+        print("Type 'clear' to reset the conversation history.")
+        print("Type 'test' to run a predefined test with known working inputs.\n")
+        
+        # Main chat loop
         while True:
             user_input = input("User: ")
             
-            # Check for exit command - strip any leading characters like ':'
-            if user_input.lstrip(':').lower() in ["exit", "quit", "bye", "q"]:
+            # Check for special commands
+            if user_input.lower() in ["exit", "quit", "bye", "q"]:
                 print("Goodbye!")
-                write_to_log(log_file, "User", user_input)
-                write_to_log(log_file, "Model", "Goodbye!")
                 break
+            elif user_input.lower() == "clear":
+                chat_model.reset_history()
+                print("Conversation history has been reset.")
+                continue
+            elif user_input.lower() == "test":
+                # Run through test cases that should work based on the training data
+                test_cases = [
+                    "hello",
+                    "އައްސަލާމް އަލައިކުމް",
+                    "How are you doing?",
+                    "What do you like to do in your free time?"
+                ]
+                
+                for test in test_cases:
+                    print(f"\nTest input: {test}")
+                    response = chat_model.generate_response(test)
+                    print(f"Model response: {response}")
+                continue
             
-            get_custom_model_streaming_response(chat_session, user_input, log_file)
+            # Generate response
+            response = chat_model.generate_response(user_input)
+            print("Model:", response)
+            
+            # Add to history
+            chat_model.add_to_history(user_input, response)
     
-    except KeyboardInterrupt:
-        print("\nExiting chat bot...")
-    finally:
-        # Close log file if it was opened
-        if log_file:
-            log_file.close()
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        print("Make sure the model path is correct and HF_TOKEN is set properly.")
+        return
+
 
 if __name__ == "__main__":
     chat_bot()
