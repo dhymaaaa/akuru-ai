@@ -53,19 +53,89 @@ model = get_peft_model(base_model, lora_config)
 # Set the model to training mode
 model.train()
 
-# Load and prepare the instruction dataset (using the approach from second script)
+# Load and prepare the instruction dataset
 print("Loading instruction dataset...")
-with open("backend/data/dhivehi-english-dialogue.jsonl", "r", encoding="utf-8") as f:
-    data = [json.loads(line) for line in f]
+data_path = "backend/data/dhivehi-english-dialogue.jsonl"
 
-# Create instruction-tuning samples with explicit Dhivehi instructions
-formatted_texts = []
-for item in data:
-    # Add explicit instruction to respond in Dhivehi
-    formatted_text = f"<start>\nuser: ޖަވާބު ދިވެހިބަހުން ދޭށެވެ (Please respond in Dhivehi)\n{item['input']}\nassistant: {item['output']}\n<end>"
-    formatted_texts.append(formatted_text)
+# Check if the file exists
+if not os.path.exists(data_path):
+    raise FileNotFoundError(f"Dataset file not found: {data_path}")
 
-print(f"Created {len(formatted_texts)} formatted examples")
+# Load the data and print the first item to inspect format
+with open(data_path, "r", encoding="utf-8") as f:
+    try:
+        # Read the first line to check format
+        first_line = f.readline().strip()
+        print("First data item for format inspection:")
+        print(first_line)
+        
+        # Reset file pointer to start
+        f.seek(0)
+        
+        # Load all data
+        data = []
+        for line in f:
+            try:
+                item = json.loads(line.strip())
+                data.append(item)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing line: {e}")
+                continue
+    except Exception as e:
+        print(f"Error reading dataset: {e}")
+        raise
+
+print(f"Loaded {len(data)} data items")
+
+# Check the structure of the first item to determine keys
+if data:
+    print("Keys in the first data item:", list(data[0].keys()))
+    
+    # Create instruction-tuning samples with the appropriate format based on data structure
+    formatted_texts = []
+    
+    # Check if the data has the expected structure or adapt to what's available
+    for item in data:
+        try:
+            # Option 1: If data has 'input' and 'output' keys (as expected)
+            if 'input' in item and 'output' in item:
+                formatted_text = f"<start>\nuser: {item['input']}\nassistant: (Please respond in Dhivehi) {item['output']}\n<end>"
+            # Option 2: If data has 'messages' structure (common in chat datasets)
+            elif 'messages' in item:
+                user_message = ""
+                assistant_message = ""
+                for msg in item['messages']:
+                    if msg['role'] == 'user':
+                        user_message += msg['content'] + "\n"
+                    elif msg['role'] == 'assistant':
+                        assistant_message += msg['content'] + "\n"
+                
+                if user_message and assistant_message:
+                    formatted_text = f"<start>\nuser: {user_message.strip()}\nassistant: (Please respond in Dhivehi) {assistant_message.strip()}\n<end>"
+                else:
+                    continue  # Skip if we can't extract both parts
+            # Option 3: For single-turn datasets: first key is the prompt, second is the response
+            elif len(item) == 2:
+                keys = list(item.keys())
+                formatted_text = f"<start>\nuser: {item[keys[0]]}\nassistant: (Please respond in Dhivehi) {item[keys[1]]}\n<end>"
+            else:
+                # If none of the above cases match, print the item and skip
+                print(f"Skipping item with unexpected format: {item}")
+                continue
+                
+            formatted_texts.append(formatted_text)
+        except Exception as e:
+            print(f"Error processing item {item}: {e}")
+            continue
+
+    print(f"Created {len(formatted_texts)} formatted examples")
+    
+    # Print a sample of the formatted text to verify
+    if formatted_texts:
+        print("\nSample formatted example:")
+        print(formatted_texts[0])
+else:
+    raise ValueError("No valid data items found in the dataset")
 
 # Create dataset
 dataset = Dataset.from_dict({"text": formatted_texts})
