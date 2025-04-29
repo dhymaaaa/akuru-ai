@@ -84,12 +84,22 @@ class DhivehiModelChat:
                                                  "އެކިއެއްޗެހި ކެއްކުމުގަ އުޅެނީ، އާ ރެސިޕީތައް."],
             "where are you from": ["އުފަންވެ ބޮޑުވީ ދިވެއްސެއްގެ ގޮތުގައި.",
                             "ބޮޑުވީ ލަންކާގައި، އެކަމަކު މިހާރު ރާއްޖޭގައި އުޅެނީ.",
-                            "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."]
+                            "އަސްލު އިންޑިއާއިން ނަމަވެސް ވަރަށް ތަންތަނަށް ބަދަލު ވެވިިއްޖެ."],
+            "got any hobbies": [".ވަރަށް ވާހަކަ ކިޔައި އުޅެން",
+                       "ރައްޓެހިންނާއެކީ ގިނައިން އުޅެނީ، ދެން ބައެއް ފަހަރު ދުއްވާލަން ދާން.",
+                       "ގޭމު ކުޅެނީ އާންމުކޮށް."]
         }
         
         # Add Dhivehi versions of the queries
         self.training_examples["އައްސަލާމް އަލައިކުމް"] = self.training_examples["assalamu alaikum"]
         self.training_examples["ކިހިނެއްތޯ އުޅުއްވަނީ"] = self.training_examples["how are you doing"]
+        
+        # Extract complete example dialogues from training data for prompting
+        self.examples = [
+            {"messages":[{"role":"user","content":"hello"},{"role":"assistant","content":"ވައަލައިކުމް އައްސަލާމް! ކިހިނެއްތޯ އުޅުއްވަނީ؟"}]},
+            {"messages":[{"role":"user","content":"How are you doing?"},{"role":"assistant","content":"އަޅުގަނޑު ރަނގަޅު، ޝުކުރިއްޔާ! ތިބާ ކިހިނެއް؟"}]},
+            {"messages":[{"role":"user","content":"What do you like to do in your free time?"},{"role":"assistant","content":".ވަރަށް ވާހަކަ ކިޔައި އުޅެން"}]}
+        ]
         
     def match_response(self, user_input):
         """Try to match user input with training examples."""
@@ -109,28 +119,24 @@ class DhivehiModelChat:
         # No match found
         return None
     
-    def generate_response(self, user_input):
-        """Generate a response using either matching or model generation."""
+    def generate_response_with_improved_prompt(self, user_input):
+        """Generate a response using improved prompt engineering."""
         try:
-            # First try to match with training examples
-            matched_response = self.match_response(user_input)
-            if matched_response:
-                print(f"Using matched response from training data")
-                return matched_response
+            # First create a sample prompt from our examples
+            # We'll use the first two examples as few-shot prompts
+            example_prompts = json.dumps(self.examples[0], ensure_ascii=False) + "\n" + json.dumps(self.examples[1], ensure_ascii=False) + "\n"
             
-            print("\nNo direct match found, trying model generation...")
+            # Then format the current prompt in the same style as the examples
+            # But leaving the assistant response empty to be completed by the model
+            current_prompt_start = '{"messages":[{"role":"user","content":"' + user_input + '"},{"role":"assistant","content":"'
             
-            # Create a conversation example that matches training format
-            messages_data = {
-                "messages": [{"role": "user", "content": user_input}]
-            }
+            # Combine the examples with the current prompt start
+            full_prompt = example_prompts + current_prompt_start
             
-            # Format the prompt as JSON string
-            json_prompt = json.dumps(messages_data, ensure_ascii=False)
-            print(f"Sending to model: {json_prompt}")
+            print(f"Sending improved prompt: {full_prompt}")
             
-            # Tokenize
-            inputs = self.tokenizer(json_prompt, return_tensors="pt").to(self.model.device)
+            # Tokenize the prompt
+            inputs = self.tokenizer(full_prompt, return_tensors="pt").to(self.model.device)
             
             # Generate
             with torch.no_grad():
@@ -143,18 +149,75 @@ class DhivehiModelChat:
             full_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             print(f"Raw model output: {full_output}")
             
+            # Try to extract the assistant content using regex
+            assistant_pattern = r'{"role":"assistant","content":"([^"]*)"'
+            matches = re.findall(assistant_pattern, full_output)
+            
+            if matches and len(matches) > 2:  # We should have at least 3 matches (2 examples + 1 new)
+                # Get the last match which should be for the current query
+                response = matches[-1]
+                print(f"Extracted response: {response}")
+                return response
+            else:
+                # Extract any Dhivehi text after the user's input
+                input_index = full_output.find(user_input)
+                if input_index != -1:
+                    text_after_input = full_output[input_index + len(user_input):]
+                    dhivehi_matches = re.findall(r'[\u0780-\u07B1][^\u0000-\u007F]*', text_after_input)
+                    if dhivehi_matches:
+                        return ' '.join(dhivehi_matches)
+            
+            # If extraction fails, return None so we can fall back to other methods
+            return None
+            
+        except Exception as e:
+            print(f"Error in improved prompt generation: {e}")
+            return None
+    
+    def generate_response(self, user_input):
+        """Generate a response using hybrid approach."""
+        try:
+            # First try to match with training examples
+            matched_response = self.match_response(user_input)
+            if matched_response:
+                print(f"Using matched response from training data")
+                return matched_response
+            
+            print("\nNo direct match found, trying improved prompt generation...")
+            
+            # Try the improved prompting approach
+            improved_response = self.generate_response_with_improved_prompt(user_input)
+            if improved_response:
+                return improved_response
+            
+            print("Improved prompt generation failed, trying standard model generation...")
+            
+            # Fall back to simple generation
+            messages_data = {
+                "messages": [{"role": "user", "content": user_input}]
+            }
+            
+            json_prompt = json.dumps(messages_data, ensure_ascii=False)
+            print(f"Sending to model: {json_prompt}")
+            
+            inputs = self.tokenizer(json_prompt, return_tensors="pt").to(self.model.device)
+            
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    **self.generation_config
+                )
+            
+            full_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            print(f"Raw model output: {full_output}")
+            
             # Try to extract Dhivehi text
             dhivehi_matches = re.findall(r'[\u0780-\u07B1][^\u0000-\u007F]*', full_output)
             if dhivehi_matches and len(dhivehi_matches) > 0:
-                # Join all matches after removing the first one (which might be from input)
-                if user_input in dhivehi_matches[0]:
-                    dhivehi_matches = dhivehi_matches[1:]
-                    
-                if dhivehi_matches:
-                    dhivehi_text = ' '.join(dhivehi_matches)
-                    # Clean up the text
-                    dhivehi_text = re.sub(r'[\{\}\[\]":]', '', dhivehi_text)
-                    dhivehi_text = re.sub(r'role|content|assistant|user', '', dhivehi_text)
+                # Filter out the user input if present
+                filtered_matches = [match for match in dhivehi_matches if user_input not in match]
+                if filtered_matches:
+                    dhivehi_text = ' '.join(filtered_matches)
                     return dhivehi_text.strip()
             
             # If we couldn't extract any Dhivehi text, use a default response
@@ -182,7 +245,7 @@ class DhivehiModelChat:
 
 def chat_bot():
     """Start the chat bot with improved response generation."""
-    print("Welcome to Dhivehi Chat Bot - Enhanced Version")
+    print("Welcome to Dhivehi Chat Bot - Enhanced Version with Improved Prompting")
     print("Loading model... Please wait, this may take a minute...")
     
     try:
@@ -218,7 +281,8 @@ def chat_bot():
                     "hello",
                     "އައްސަލާމް އަލައިކުމް",
                     "How are you doing?",
-                    "What do you like to do in your free time?"
+                    "What do you like to do in your free time?",
+                    "Got any hobbies?"
                 ]
                 
                 for test in test_cases:
