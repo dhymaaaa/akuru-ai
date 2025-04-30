@@ -18,7 +18,7 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 # Comment out this line to disable file logging
-ENABLE_FILE_LOGGING = False  # Set to False or comment out to disable file logging
+ENABLE_FILE_LOGGING = True  # Set to False or comment out to disable file logging
 
 # Setup signal handler for graceful exit with Ctrl+C
 def signal_handler(sig, frame):
@@ -39,7 +39,7 @@ def write_to_log(file, role, text):
     """Write to log file if logging is enabled."""
     if file:
         file.write(f"{role}: {text}\n")
-        if role == "Gemini":
+        if role == "Akuru":
             file.write("\n")
         file.flush()
 
@@ -53,11 +53,11 @@ def get_gemini_streaming_response(chat_session, prompt, log_file=None):
         response = chat_session.send_message(prompt, stream=True)
         
         full_response = ""
-        print("Gemini: ", end="", flush=True)
+        print("Akuru: ", end="", flush=True)
         
         # Start Gemini response in file if logging is enabled
         if log_file:
-            log_file.write("Gemini: ")
+            log_file.write("Akuru: ")
             log_file.flush()
         
         for chunk in response:

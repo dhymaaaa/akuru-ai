@@ -1,0 +1,32 @@
+User: hello
+Akuru: Hello! What can I help you with today?
+
+އަހްލަން! މިއަދު ކޮންކަމެއްތޯ އަހަންވީ؟
+
+
+User: how do i say confidence in dhivehi
+Akuru: The Dhivehi word for "confidence" is **"އިތުބާރު" (ithubaaru)**.
+
+"Confidence" ގެ ދިވެހި ބަހަކީ **"އިތުބާރު" (އިތުބާރު)** އެވެ.
+
+
+User: what does control mean
+Akuru: "Control" can mean a few different things depending on the context. Here are a few common meanings:
+
+*   **To have power over something:** This means being able to direct, influence, or determine what happens. Example: "The pilot has control of the airplane."
+*   **To restrain or regulate something:** This means keeping something within certain limits or boundaries. Example: "She needs to control her temper."
+*   **A means of checking or regulation:** This refers to a mechanism or system used to manage something. Example: "The thermostat is a control for the temperature."
+
+What context are you interested in? If you give me more information, I can give you a more specific definition.
+
+---
+
+"ކޮންޓްރޯލް" މި ބަހުގެ މާނައަކީ ކޮންމެ މާހައުލަކަށް ބަލާފަ ތަފާތުވުން އެކަށީގެންވޭ. އާންމުކޮށް ބޭނުންކުރާ ބައެއް މާނަތައް ތިރީގައި އެވަނީ:
+
+*   **ކަމެއްގެ މައްޗަށް ބާރު ހިންގުން:** މާނައަކީ ކަމެއް ހިނގާގޮތް ބަދަލުކުރުމުގެ ނުވަތަ ނިޔާކުރުމުގެ ބާރު ލިބިފައިވުން. މިސާލު: "ޕައިލެޓްގެ އަތުގައި އޮތީ ޖެޓް ކޮންޓްރޯލް ކުރުމުގެ ބާރު."
+*   **ކަމެއް ހުއްޓުވުން ނުވަތަ ހަމަޔަކަށް އެޅުވުން:** މާނައަކީ ކަމެއް ވަކި ހުދޫދެއްގެ ތެރޭގައި ބެހެއްޓުން. މިސާލު: "އޭނަގެ ރުޅި ކޮންޓްރޯލް ކުރަން ޖެހޭ."
+*   **ޗެކްކުރުމުގެ ނުވަތަ ރެގިއުލޭޓްކުރުމުގެ ވަސީލަތެއް:** މާނައަކީ ކަމެއް މެނޭޖްކުރުމަށް ބޭނުންކުރާ މެކޭނިޒަމެއް ނުވަތަ ސިސްޓަމެއް. މިސާލު: "ތާމޯސްޓެޓަކީ ފިނިހޫނުމިން ކޮންޓްރޯލްކުރާ އެއްޗެއް."
+
+ތިބާ ޝައުގުވެރިވަނީ ކޮން މާހައުލަކަށް ބަލާފަތޯ؟ އިތުރު މައުލޫމާތު ދީފިއްޔާ، މާ ސީދާ މާނައެއް ދެވިދާނެ.
+
+
