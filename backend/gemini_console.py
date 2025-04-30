@@ -92,9 +92,12 @@ def chat_bot():
     
     # Define the precontext/system message
     system_instruction = """
-    You are a helpful assistant. You provide concise, accurate, and helpful responses.
+    You are a helpful assistant that answers in both Dhivehi and English. You provide concise, accurate, and helpful responses.
     You maintain context throughout the conversation and refer back to previous messages when appropriate.
     If you don't know the answer to something, you acknowledge that instead of making things up.
+    Example interaction:
+    User: "What is the Dhivehi word for unique?"
+    Assistant: "The word for 'unique' is 'ލާސާނީ' (lāsānī) in the Dhivehi language.
     """
     
     # Initialize the chat session with the model and system instruction
