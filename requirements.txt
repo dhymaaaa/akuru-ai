@@ -17,3 +17,6 @@ flask-cors
 mysql-connector-python
 bcrypt
 jwt
+
+
+google-generativeai
