@@ -38,8 +38,8 @@ base_model = prepare_model_for_kbit_training(base_model)
 
 # Create a new LoRA configuration that combines the strengths of both scripts
 lora_config = LoraConfig(
-    r=64,  # Increased rank from second script (was 16)
-    lora_alpha=128,  # Increased alpha from second script (was 32)
+    r=64, 
+    lora_alpha=128, 
     # Use the more comprehensive target modules list from second script but maintain first script's focus
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     lora_dropout=0.05,
@@ -177,7 +177,7 @@ training_args = TrainingArguments(
     report_to="none",
     fp16=False,  # Disabled as in first script
     bf16=True,  # Using bfloat16 for Gemma-3
-    learning_rate=8e-5,  # Using increased learning rate from first script
+    learning_rate=8e-5,  
     weight_decay=0.01,
     warmup_steps=50,
     eval_strategy="steps",
