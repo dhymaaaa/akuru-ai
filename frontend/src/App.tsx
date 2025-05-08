@@ -4,6 +4,7 @@ import { AuthProvider } from './lib/auth-context';
 import { Login } from './pages/Auth/Login';
 import SignUp from './pages/Auth/SignUp';
 import './App.css';
+import Home from './pages/Home';
 
 // Import your other components/pages
 // import Dashboard from './pages/Dashboard';
@@ -15,6 +16,7 @@ function App() {
       <Router>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/try" element={<div>Try it first page</div>} />

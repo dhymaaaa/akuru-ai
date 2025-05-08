@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@fontsource/anaheim": "^5.2.5",
+    "@mdi/js": "^7.4.47",
+    "@mdi/react": "^1.6.1",
     "@tailwindcss/vite": "^4.1.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
