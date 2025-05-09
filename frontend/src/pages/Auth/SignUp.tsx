@@ -3,6 +3,7 @@ import Typewriter from "@/fancy/components/text/typewriter"
 import { Link, useNavigate } from 'react-router-dom';
 
 export const SignUp = () => {
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -33,7 +34,7 @@ export const SignUp = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ name, email, password }),
             });
 
             const data = await response.json();
@@ -43,6 +44,7 @@ export const SignUp = () => {
             }
 
             // Clear form
+            setName('');
             setEmail('');
             setPassword('');
             setConfirmPassword('');
@@ -115,6 +117,16 @@ export const SignUp = () => {
                         </div>
                     )}
                     <div className='px-3 flex flex-col items-center'>
+                        <div className="w-3/4">
+                            <input
+                                type="name"
+                                placeholder="Name"
+                                className="w-full px-3 py-3 mb-3 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-md focus:outline-none"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required
+                            />
+                        </div>
                         <div className="w-3/4">
                             <input
                                 type="email"

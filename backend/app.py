@@ -42,6 +42,7 @@ def setup_database():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -62,11 +63,12 @@ def get_db_connection():
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json()
+    name = data.get('name')
     email = data.get('email')
     password = data.get('password')
     
-    if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
+    if not name or not email or not password:
+        return jsonify({'error': 'Name, email and password are required'}), 400
     
     # Hash the password
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -82,8 +84,8 @@ def signup():
         
         # Insert new user
         cursor.execute(
-            "INSERT INTO users (email, password) VALUES (%s, %s)",
-            (email, hashed_password.decode('utf-8'))
+            "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
+            (name, email, hashed_password.decode('utf-8'))
         )
         conn.commit()
         
