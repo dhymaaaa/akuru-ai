@@ -118,11 +118,56 @@ def get_conversations(user_id):
     cursor = conn.cursor(dictionary=True)
     
     try:
-        cursor.execute(
-            "SELECT * FROM conversations WHERE user_id = %s ORDER BY updated_at DESC",
-            (user_id,)
-        )
+        cursor.execute("""
+            SELECT c.*, COUNT(m.id) as message_count 
+            FROM conversations c
+            LEFT JOIN messages m ON c.id = m.conversation_id
+            WHERE c.user_id = %s
+            GROUP BY c.id
+            ORDER BY c.updated_at DESC
+        """, (user_id,))
         return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_conversation(conversation_id):
+    """Get a specific conversation"""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT * FROM conversations WHERE id = %s", (conversation_id,))
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_conversation_title(conversation_id, title):
+    """Update conversation title"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "UPDATE conversations SET title = %s WHERE id = %s",
+            (title, conversation_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_conversation(conversation_id):
+    """Delete a conversation (messages will be deleted via cascade)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("DELETE FROM conversations WHERE id = %s", (conversation_id,))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         cursor.close()
         conn.close()
@@ -160,6 +205,47 @@ def get_messages(conversation_id):
             (conversation_id,)
         )
         return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_message(message_id):
+    """Get a specific message"""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT * FROM messages WHERE id = %s", (message_id,))
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_message(message_id):
+    """Delete a message"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get the conversation ID before deleting
+        cursor.execute("SELECT conversation_id FROM messages WHERE id = %s", (message_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False
+            
+        conversation_id = result[0]
+        
+        # Delete the message
+        cursor.execute("DELETE FROM messages WHERE id = %s", (message_id,))
+        
+        # Update the conversation's updated_at timestamp
+        cursor.execute(
+            "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (conversation_id,)
+        )
+        
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         cursor.close()
         conn.close()

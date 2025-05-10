@@ -1,10 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Icon from '@mdi/react';
-import { mdiAccountCircle, mdiArrowRight } from '@mdi/js';
+import { mdiAccountCircle, mdiArrowRight, mdiLoading } from '@mdi/js';
 
 interface UserData {
   name: string;
   email: string;
+}
+
+interface Message {
+  id?: number;
+  role: 'user' | 'akuru';
+  content: string;
+  created_at?: string;
+}
+
+interface Conversation {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
 }
 
 const Home = () => {
@@ -12,7 +27,14 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -33,7 +55,6 @@ const Home = () => {
         setIsAuthenticated(true);
 
         try {
-          // Using relative URL that will be proxied by Vite
           const response = await fetch('/api/user', {
             method: 'GET',
             headers: {
@@ -48,17 +69,13 @@ const Home = () => {
             throw new Error(`Failed to fetch user data: ${response.status}`);
           }
 
-          // Get response as text first for debugging
           const responseText = await response.text();
-          console.log('Raw API response:', responseText);
-
-          // Parse JSON if there's actual content
+          
           if (!responseText.trim()) {
             throw new Error('Empty response from server');
           }
 
           const data = JSON.parse(responseText);
-          console.log('User data received:', data);
 
           if (!data || typeof data !== 'object') {
             throw new Error('Invalid data format received');
@@ -68,11 +85,13 @@ const Home = () => {
             name: data.name || 'User',
             email: data.email || 'user@example.com'
           });
+          
+          // After successful authentication, fetch conversations
+          fetchConversations();
         } catch (fetchError) {
           console.error('Fetch error:', fetchError);
           setUserData({ name: 'User', email: 'Error fetching data' });
           setError(`Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-          // Keep user authenticated even if fetch fails
         }
       } catch (error) {
         console.error('Error in overall fetchUserData function:', error);
@@ -86,6 +105,192 @@ const Home = () => {
 
     fetchUserData();
   }, []);
+
+  // Fetch conversations from API
+  const fetchConversations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/conversations', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch conversations: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setConversations(data);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  };
+
+  // Create a new conversation
+  const createConversation = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title: 'New Conversation' })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create conversation: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Add the new conversation to the list and set it as current
+      setConversations(prev => [data, ...prev]);
+      setCurrentConversation(data.id);
+      setMessages([]);
+      
+      return data.id;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return null;
+    }
+  };
+
+  // Fetch messages for a conversation
+  const fetchMessages = async (conversationId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch messages: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setMessages(data);
+      
+      // Scroll to bottom after messages load
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Send a message and get AI response
+  const sendMessage = async (content: string) => {
+    if (!content.trim()) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // If no conversation is selected, create a new one
+      let conversationId = currentConversation;
+      if (!conversationId) {
+        conversationId = await createConversation();
+        if (!conversationId) throw new Error('Failed to create conversation');
+      }
+
+      // Add user message to UI immediately for better UX
+      const userMessage: Message = { role: 'user', content };
+      setMessages(prev => [...prev, userMessage]);
+      scrollToBottom();
+      
+      // Clear input field
+      setMessage('');
+
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // If the response contains an AI response, add it to the messages
+      if (data.ai_response) {
+        const aiMessage: Message = { 
+          id: data.ai_response.id,
+          role: 'akuru', 
+          content: data.ai_response.content 
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        scrollToBottom();
+      }
+      
+      // Refresh conversations list to update the updated_at timestamp
+      fetchConversations();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError(`Error sending message: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle new chat button
+  const handleNewChat = () => {
+    setCurrentConversation(null);
+    setMessages([]);
+  };
+
+  // Handle conversation selection
+  const handleSelectConversation = (conversationId: number) => {
+    setCurrentConversation(conversationId);
+    fetchMessages(conversationId);
+  };
+
+  // Handle input form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(message);
+  };
+
+  // Scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Format conversation title for display
+  const formatConversationTitle = (conversation: Conversation) => {
+    if (conversation.title && conversation.title !== 'New Conversation') {
+      return conversation.title;
+    }
+    
+    // If no meaningful title, use the first message or default
+    return `New conversation (${conversation.message_count} messages)`;
+  };
+
   return (
     <div className="flex h-screen bg-[#292929] text-white">
       {/* Sidebar */}
@@ -98,7 +303,10 @@ const Home = () => {
           </button>
         </div>
         <div className="px-4 py-2">
-          <button className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition">
+          <button 
+            onClick={handleNewChat}
+            className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition hover:bg-[#363636]"
+          >
             <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
               width="96.000000pt" height="96.000000pt" viewBox="0 0 96.000000 96.000000"
               preserveAspectRatio="xMidYMid meet">
@@ -124,8 +332,12 @@ const Home = () => {
           <h3 className="text-sm font-medium text-white">Recents</h3>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {[1, 2, 3, 4, 5].map((item) => (
-            <div key={item} className="flex items-center px-4 py-3 mx-4 hover:bg-[#292929] rounded-lg transition-all duration-200 cursor-pointer hover:shadow-md">
+          {conversations.map((conversation) => (
+            <div 
+              key={conversation.id} 
+              className={`flex items-center px-4 py-3 mx-4 ${currentConversation === conversation.id ? 'bg-[#292929]' : 'hover:bg-[#292929]'} rounded-lg transition-all duration-200 cursor-pointer hover:shadow-md`}
+              onClick={() => handleSelectConversation(conversation.id)}
+            >
               <div className="w-6 h-6 flex items-center justify-center mr-3">
                 <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
                   width="512.000000pt" height="512.000000pt" viewBox="0 0 512.000000 512.000000"
@@ -155,7 +367,7 @@ const Home = () => {
                   </g>
                 </svg>
               </div>
-              <span className="text-sm">How to say 'good morning' in dhivehi?</span>
+              <span className="text-sm">{formatConversationTitle(conversation)}</span>
             </div>
           ))}
         </div>
@@ -237,56 +449,100 @@ const Home = () => {
           </div>
         </div>
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 flex flex-col items-center justify-center">
-            {isLoading ? (
-              <h1 className="text-3xl font-medium mb-4">Loading...</h1>
-            ) : (
-              <>
-                <h1 className="text-3xl font-medium mb-4">
-                  Hello, {userData.name}
-                </h1>
-                {error && (
-                  <div className="bg-red-500 bg-opacity-20 p-4 rounded-md mb-4">
-                    <p className="text-red-300">{error}</p>
+          <div className="flex-1 overflow-y-auto p-6">
+            {isAuthenticated ? (
+              messages.length === 0 ? (
+                // Empty state for chat
+                <div className="flex flex-col items-center justify-center h-full">
+                  <h1 className="text-3xl font-medium mb-4">
+                    Welcome to Akuru AI
+                  </h1>
+                  <div className="text-gray-400 mb-4 text-center">
+                    <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
+                      Start chatting with Akuru in English or Dhivehi
+                    </span>
                   </div>
-                )}
-                {isAuthenticated ? (
-                  <div className="text-center">
-                    <div className="text-gray-400 mb-4">
-                      <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
-                        Welcome back!
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <div className="text-gray-400 mb-4">
-                      <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
-                        You are not logged in
-                      </span>
-                    </div>
-                    <a
-                      href="/login"
-                      className="px-4 py-2 bg-[#E9D8B5] text-black rounded-md hover:bg-[#d9c8a5] transition-colors"
+                </div>
+              ) : (
+                // Chat messages
+                <div className="space-y-6">
+                  {messages.map((message, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      Sign in
-                    </a>
-                  </div>
+                      <div 
+                        className={`max-w-[70%] rounded-lg p-4 ${
+                          message.role === 'user' 
+                            ? 'bg-[#E9D8B5] text-black' 
+                            : 'bg-[#1E1E1E] text-white'
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                    </div>
+                  ))}
+                  {/* This div is used to scroll to bottom */}
+                  <div ref={messagesEndRef} />
+                </div>
+              )
+            ) : (
+              // Not authenticated view
+              <div className="flex flex-col items-center justify-center h-full">
+                {isLoading ? (
+                  <h1 className="text-3xl font-medium mb-4">Loading...</h1>
+                ) : (
+                  <>
+                    <h1 className="text-3xl font-medium mb-4">
+                      Hello, {userData.name}
+                    </h1>
+                    {error && (
+                      <div className="bg-red-500 bg-opacity-20 p-4 rounded-md mb-4">
+                        <p className="text-red-300">{error}</p>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <div className="text-gray-400 mb-4">
+                        <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
+                          You are not logged in
+                        </span>
+                      </div>
+                      <a
+                        href="/login"
+                        className="px-4 py-2 bg-[#E9D8B5] text-black rounded-md hover:bg-[#d9c8a5] transition-colors"
+                      >
+                        Sign in
+                      </a>
+                    </div>
+                  </>
                 )}
-              </>
+              </div>
             )}
           </div>
+          
+          {/* Chat input */}
           <div className="p-6">
-            <div className="relative w-full max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="relative w-full max-w-3xl mx-auto">
               <input
                 type="text"
                 className="w-full px-4 py-3 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-full focus:outline-none focus:ring-1 focus:ring-[#E9D8B5]"
                 placeholder="Type a message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={!isAuthenticated || isProcessing}
               />
-              <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#E9D8B5] hover:text-white transition-colors">
-                <Icon path={mdiArrowRight} size={1} />
+              <button 
+                type="submit"
+                disabled={!isAuthenticated || isProcessing || !message.trim()}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#E9D8B5] hover:text-white transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <Icon path={mdiLoading} size={1} className="animate-spin" />
+                ) : (
+                  <Icon path={mdiArrowRight} size={1} />
+                )}
               </button>
-            </div>
+            </form>
             <div className="flex justify-center text-xs text-gray-400 mt-2">
               <div className='font-bold'>Akuru can make mistakes</div>
               <div className='font-bold ml-5'>...</div>

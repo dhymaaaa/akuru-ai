@@ -6,6 +6,7 @@ import datetime
 import os
 from dotenv import load_dotenv
 import db  # Import our database module
+import gemini_integration  # Import our Gemini integration
 
 # Load environment variables
 load_dotenv()
@@ -146,7 +147,7 @@ def get_user_conversations():
 
 @app.route('/api/conversations', methods=['POST'])
 @token_required
-def create_new_conversation():  # Renamed this function to avoid conflicts
+def create_new_conversation():
     token = request.headers.get('Authorization')
     token = token[7:] if token.startswith('Bearer ') else token
     
@@ -174,20 +175,45 @@ def get_conversation_messages(conversation_id):
 
 @app.route('/api/conversations/<int:conversation_id>/messages', methods=['POST'])
 @token_required
-def add_conversation_message(conversation_id):  # Renamed this function to avoid conflicts
+def add_conversation_message(conversation_id):
     content = request.json.get('content')
     role = request.json.get('role', 'user')
     
     if not content:
         return jsonify({'error': 'Message content is required'}), 400
     
+    # Add the user message to the database
     message_id = db.add_message(conversation_id, role, content)
     
-    # Here you would typically generate a response from your AI model
-    # For now, let's just echo back with an "akuru" role
+    # Only generate an AI response if this is a user message
     if role == 'user':
-        db.add_message(conversation_id, 'akuru', f"Echo: {content}")
+        try:
+            # Get all messages in this conversation for context
+            messages = gemini_integration.process_conversation_messages(conversation_id, db)
+            
+            # Get response from Gemini
+            ai_response = gemini_integration.get_gemini_response(messages)
+            
+            # Save the AI response to the database
+            ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
+            
+            return jsonify({
+                'id': message_id,
+                'ai_response': {
+                    'id': ai_message_id,
+                    'content': ai_response
+                }
+            }), 201
+            
+        except Exception as e:
+            app.logger.error(f"Error generating AI response: {str(e)}")
+            # Still return success for the user message, but with error info
+            return jsonify({
+                'id': message_id,
+                'error': f"Failed to generate AI response: {str(e)}"
+            }), 201
     
+    # For non-user messages, just return the message ID
     return jsonify({'id': message_id}), 201
 
 # Test endpoint to verify CORS is working
