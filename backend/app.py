@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+# Enable CORS 
+CORS(app, resources={r"/api/*": {
+    "origins": ["http://localhost:5173"],  # Vite's default port
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "supports_credentials": True
+}})
 
 # Secret key for JWT
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -25,7 +31,7 @@ db_config = {
     'database': os.getenv('DB_NAME')
 }
 
-# Database setup function
+# Modified setup_database function
 def setup_database():
     conn = mysql.connector.connect(
         host=db_config['host'],
@@ -49,6 +55,31 @@ def setup_database():
     )
     """)
     
+    # Create conversations table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS conversations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        title VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+    """)
+    
+    # Create messages table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        conversation_id INT NOT NULL,
+        role ENUM('user', 'akuru') NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    )
+    """)
+    
     conn.commit()
     cursor.close()
     conn.close()
@@ -59,6 +90,10 @@ setup_database()
 # Helper function to get database connection
 def get_db_connection():
     return mysql.connector.connect(**db_config)
+
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({'error': 'Unauthorized'}), 401
 
 @app.route('/api/signup', methods=['POST'])
 def signup():
@@ -162,35 +197,46 @@ def token_required(f):
     
     return decorated
 
-# # Protected route example
-# @app.route('/api/profile', methods=['GET'])
-# @token_required
-# def profile():
-#     token = request.headers.get('Authorization')
-#     if token.startswith('Bearer '):
-#         token = token[7:]
+
+@app.route('/api/user', methods=['GET'])
+@token_required
+def get_profile():
+    token = request.headers.get('Authorization')
+    if token.startswith('Bearer '):
+        token = token[7:]
     
-#     data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-#     user_id = data['user_id']
-    
-#     conn = get_db_connection()
-#     cursor = conn.cursor(dictionary=True)
-    
-#     try:
-#         cursor.execute("SELECT id, email, created_at FROM users WHERE id = %s", (user_id,))
-#         user = cursor.fetchone()
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = data['user_id']
         
-#         if not user:
-#             return jsonify({'error': 'User not found'}), 404
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
         
-#         return jsonify(user), 200
+        try:
+            cursor.execute("SELECT name, email FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            return jsonify(user), 200
+        
+        except Exception as e:
+            print(f"Database error: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+        
+        finally:
+            cursor.close()
+            conn.close()
     
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
-    
-#     finally:
-#         cursor.close()
-#         conn.close()
+    except Exception as e:
+        print(f"Token decode error: {str(e)}")
+        return jsonify({'error': 'Token validation failed'}), 401
+
+# Test endpoint to verify CORS is working
+@app.route('/api/test', methods=['GET'])
+def test_endpoint():
+    return jsonify({'message': 'CORS is working correctly!'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

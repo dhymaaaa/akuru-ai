@@ -2,7 +2,6 @@ python -m venv .venv
 .\.venv\Scripts\activate 
 
 beautifulsoup4
-python-dotenv
 pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
 transformers
 accelerate
@@ -13,10 +12,12 @@ scikit-learn
 pandas
 tqdm
 rouge_score
-flask-cors
-mysql-connector-python
-bcrypt
-jwt
-
-
 google-generativeai
+
+flask==2.0.1
+flask-cors==3.0.10
+mysql-connector-python==8.0.26
+bcrypt==3.2.0
+PyJWT==2.1.0
+python-dotenv==0.19.0
+werkzeug==2.0.3
