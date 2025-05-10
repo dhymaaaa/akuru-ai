@@ -1,7 +1,91 @@
+import { useState, useEffect } from 'react';
 import Icon from '@mdi/react';
-import { mdiAccountCircle } from '@mdi/js';
+import { mdiAccountCircle, mdiArrowRight } from '@mdi/js';
+
+interface UserData {
+  name: string;
+  email: string;
+}
 
 const Home = () => {
+  const [userData, setUserData] = useState<UserData>({ name: '', email: '' });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Check if token exists
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No token found in localStorage');
+          setUserData({ name: 'Guest', email: 'Please log in' });
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('Token found, attempting to fetch user data');
+        setIsAuthenticated(true);
+
+        try {
+          // Using relative URL that will be proxied by Vite
+          const response = await fetch('/api/user', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API response not OK:', response.status, response.statusText, errorText);
+            throw new Error(`Failed to fetch user data: ${response.status}`);
+          }
+
+          // Get response as text first for debugging
+          const responseText = await response.text();
+          console.log('Raw API response:', responseText);
+
+          // Parse JSON if there's actual content
+          if (!responseText.trim()) {
+            throw new Error('Empty response from server');
+          }
+
+          const data = JSON.parse(responseText);
+          console.log('User data received:', data);
+
+          if (!data || typeof data !== 'object') {
+            throw new Error('Invalid data format received');
+          }
+
+          setUserData({
+            name: data.name || 'User',
+            email: data.email || 'user@example.com'
+          });
+        } catch (fetchError) {
+          console.error('Fetch error:', fetchError);
+          setUserData({ name: 'User', email: 'Error fetching data' });
+          setError(`Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+          // Keep user authenticated even if fetch fails
+        }
+      } catch (error) {
+        console.error('Error in overall fetchUserData function:', error);
+        setUserData({ name: 'Guest', email: 'Error occurred' });
+        setError(`Global error: ${error instanceof Error ? error.message : String(error)}`);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
   return (
     <div className="flex h-screen bg-[#292929] text-white">
       {/* Sidebar */}
@@ -15,7 +99,7 @@ const Home = () => {
         </div>
         <div className="px-4 py-2">
           <button className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition">
-            <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" 
+            <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
               width="96.000000pt" height="96.000000pt" viewBox="0 0 96.000000 96.000000"
               preserveAspectRatio="xMidYMid meet">
               <g transform="translate(0.000000,96.000000) scale(0.100000,-0.100000)"
@@ -76,8 +160,8 @@ const Home = () => {
           ))}
         </div>
         <div className="p-4 border-t border-[#292929] flex items-center">
-          <Icon path={mdiAccountCircle} size={1} className='text-[#E9D8B5]'/>
-          <span className="text-sm ml-3">user@gmail.com</span>
+          <Icon path={mdiAccountCircle} size={1} className='text-[#E9D8B5]' />
+          <span className="text-sm ml-3">{userData.email || 'Loading...'}</span>
         </div>
       </div>
 
@@ -135,7 +219,7 @@ const Home = () => {
                 preserveAspectRatio="xMidYMid meet">
                 <g transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
                   fill="#E9D8B5" stroke="none">
-                    <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
+                  <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
                         -526 -710 -501 -1007 -310 -2193 483 -2988 502 -504 1199 -781 1899 -756 548
                         20 1015 179 1455 496 472 339 815 837 975 1415 35 128 36 147 11 203 -26 57
                         -84 87 -156 81 -44 -4 -64 -13 -119 -54 -158 -116 -259 -179 -381 -239 -283
@@ -147,31 +231,66 @@ const Home = () => {
                         -927 -1819 -927 -505 0 -948 147 -1354 448 -275 205 -510 490 -669 810 -159
                         321 -229 624 -229 987 1 315 45 554 154 830 163 413 462 784 833 1032 71 48
                         212 132 222 133 1 0 -18 -46 -41 -102z"/>
-                        </g>
+                </g>
               </svg>
             </button>
           </div>
         </div>
         <div className="flex-1 flex flex-col">
           <div className="flex-1 flex flex-col items-center justify-center">
-            <h1 className="text-3xl font-medium mb-4">Hello, {'{name}'}</h1>
+            {isLoading ? (
+              <h1 className="text-3xl font-medium mb-4">Loading...</h1>
+            ) : (
+              <>
+                <h1 className="text-3xl font-medium mb-4">
+                  Hello, {userData.name}
+                </h1>
+                {error && (
+                  <div className="bg-red-500 bg-opacity-20 p-4 rounded-md mb-4">
+                    <p className="text-red-300">{error}</p>
+                  </div>
+                )}
+                {isAuthenticated ? (
+                  <div className="text-center">
+                    <div className="text-gray-400 mb-4">
+                      <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
+                        Welcome back!
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="text-gray-400 mb-4">
+                      <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
+                        You are not logged in
+                      </span>
+                    </div>
+                    <a
+                      href="/login"
+                      className="px-4 py-2 bg-[#E9D8B5] text-black rounded-md hover:bg-[#d9c8a5] transition-colors"
+                    >
+                      Sign in
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div className="p-6">
-            <div className="flex items-center border border-gray-700 rounded-full overflow-hidden">
+            <div className="relative w-full max-w-3xl mx-auto">
               <input
                 type="text"
-                className="flex-1 bg-transparent p-4 outline-none text-gray-300"
+                className="w-full px-4 py-3 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-full focus:outline-none focus:ring-1 focus:ring-[#E9D8B5]"
                 placeholder="Type a message"
               />
-              <button className="bg-gray-800 p-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
+              <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#E9D8B5] hover:text-white transition-colors">
+                <Icon path={mdiArrowRight} size={1} />
               </button>
             </div>
-            <div className="flex justify-between text-xs text-gray-400 mt-2">
-              <div>Akuru can make mistakes</div>
-              <div>އަކުރަށް ގޯސްކޮށްވެސް ބުނެވިދާނެ</div>
+            <div className="flex justify-center text-xs text-gray-400 mt-2">
+              <div className='font-bold'>Akuru can make mistakes</div>
+              <div className='font-bold ml-5'>...</div>
+              <div className='font-bold ml-5'>އަކުރަށް ގޯސްކޮށްވެސް ބުނެވިދާނެ</div>
             </div>
           </div>
         </div>
