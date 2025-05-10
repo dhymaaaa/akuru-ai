@@ -56,7 +56,7 @@ export const Login = () => {
             setPassword('');
             
             // Redirect to dashboard or home page
-            navigate('/dashboard');
+            navigate('/');
             
         } catch (err: unknown) {
             if (err instanceof Error){
@@ -165,7 +165,7 @@ export const Login = () => {
             </div>
             <div className="w-2/3 h-full bg-[#292929] flex items-center">
                 <div className='m-10'>
-                    <p className="whitespace-pre-wrap text-4xl">
+                    <div className="whitespace-pre-wrap text-4xl">
                         <span className='text-[#c9c9c9]'>{"Together we can "}</span>
                         <Typewriter
                             text={[
@@ -178,7 +178,7 @@ export const Login = () => {
                             deleteSpeed={40}
                             cursorChar={"_"}
                         />
-                    </p>
+                    </div>
                 </div>
             </div>
         </div>
