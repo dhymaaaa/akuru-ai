@@ -1,7 +1,7 @@
 // hooks/useChatMessages.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { fetchMessages, sendMessage } from '../lib/api';
 import { Message } from '../types';
-import { fetchMessages, sendMessage } from '../services/api';
 
 // The key is to type the return interface correctly to match what useRef actually returns
 interface UseChatMessagesReturn {
@@ -9,7 +9,7 @@ interface UseChatMessagesReturn {
   messageInput: string;
   setMessageInput: (value: string) => void;
   isProcessing: boolean;
-  messagesEndRef: React.MutableRefObject<HTMLDivElement | null>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
   loadMessages: (conversationId: number) => Promise<void>;
   handleSendMessage: (content: string, conversationId: number | null, createConversation: () => Promise<number | null>, isTryingFirst: boolean) => Promise<void>;
   scrollToBottom: () => void;
@@ -21,16 +21,16 @@ export const useChatMessages = (): UseChatMessagesReturn => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, []);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const loadMessages = useCallback(async (conversationId: number) => {
     try {

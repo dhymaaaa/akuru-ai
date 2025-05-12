@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserData } from '../types';
-import { fetchUserData } from '../services/api';
+import { fetchUserData } from '../lib/api';
 
 interface UseAuthReturn {
   userData: UserData;

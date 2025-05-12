@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Conversation } from '../types';
-import { fetchConversations, createConversation } from '../services/api';
+import { fetchConversations, createConversation } from '../lib/api';
 
 interface UseConversationsReturn {
   conversations: Conversation[];
