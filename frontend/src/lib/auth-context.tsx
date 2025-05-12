@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { api, User } from './api';
+import api from './api';
+import { User } from '../types';
 
 // Define the shape of our context
 interface AuthContextType {
