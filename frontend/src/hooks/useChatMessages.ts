@@ -1,74 +1,87 @@
 // hooks/useChatMessages.ts
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchMessages, sendMessage } from '../lib/api';
-import { Message } from '../types';
+import { useState, useRef, useCallback, RefObject } from 'react';
+import { Message } from '@/types';
 
-// The key is to type the return interface correctly to match what useRef actually returns
-interface UseChatMessagesReturn {
-  messages: Message[];
-  messageInput: string;
-  setMessageInput: (value: string) => void;
-  isProcessing: boolean;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
-  loadMessages: (conversationId: number) => Promise<void>;
-  handleSendMessage: (content: string, conversationId: number | null, createConversation: () => Promise<number | null>, isTryingFirst: boolean) => Promise<void>;
-  scrollToBottom: () => void;
-}
 
-export const useChatMessages = (): UseChatMessagesReturn => {
+export const useChatMessages = (
+  currentConversationId: number | null, 
+  createConversation: () => Promise<number | null>,
+  onConversationError?: (error: string) => void
+) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messageInput, setMessageInput] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [message, setMessage] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, []);
-
-  // Auto-scroll when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  const loadMessages = useCallback(async (conversationId: number) => {
+  // Fetch messages for a conversation
+  const fetchMessages = useCallback(async (conversationId: number) => {
+    if (!conversationId) return;
+    
     try {
-      const data = await fetchMessages(conversationId);
-      setMessages(data);
+      setIsProcessing(true);
+      setError(null);
       
-      // Ensure we scroll to the bottom after loading messages
-      scrollToBottom();
-      // Additional delayed scroll to handle any rendering delays
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('No authentication token found');
+        return;
+      }
+
+      console.log(`Fetching messages for conversation ${conversationId}`);
+      
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const responseBody = await response.text();
+      console.log(`Messages response: ${response.status}`, responseBody.substring(0, 100) + (responseBody.length > 100 ? '...' : ''));
+      
+      let jsonData;
+      try {
+        jsonData = responseBody ? JSON.parse(responseBody) : null;
+      } catch {
+        console.error('Error parsing response:', responseBody);
+      }
+
+      if (!response.ok) {
+        const errorMessage = jsonData?.message || response.statusText || `Error ${response.status}`;
+        throw new Error(`Failed to fetch messages: ${errorMessage}`);
+      }
+
+      setMessages(jsonData || []);
+
+      // Scroll to bottom after messages load
       setTimeout(() => {
         scrollToBottom();
       }, 100);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      setError(`Error fetching messages: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsProcessing(false);
     }
-  }, [scrollToBottom]);
+  }, []);
 
-  const handleSendMessage = useCallback(async (
-    content: string, 
-    conversationId: number | null, 
-    createConversation: () => Promise<number | null>,
-    isTryingFirst: boolean
-  ) => {
+  // Send a message and get AI response
+  const sendMessage = useCallback(async (content: string, isTryingFirst: boolean = false) => {
     if (!content.trim()) return;
 
     try {
       setIsProcessing(true);
+      setError(null);
 
-      // Handle guest/try-first mode
+      // If in try-first mode, handle guest messages locally
       if (isTryingFirst) {
-        // Add user message immediately
+        // Add user message to UI
         const userMessage: Message = { role: 'user', content };
         setMessages(prev => [...prev, userMessage]);
-        
-        // Scroll to bottom after adding user message
-        scrollToBottom();
 
-        // Simulate AI response after delay
+        // Simulate AI response after short delay
         setTimeout(() => {
           const aiMessage: Message = {
             role: 'akuru',
@@ -79,56 +92,115 @@ export const useChatMessages = (): UseChatMessagesReturn => {
           setIsProcessing(false);
         }, 1000);
 
-        // Clear input
-        setMessageInput('');
+        // Clear input field
+        setMessage('');
         return;
       }
 
       // If no conversation is selected, create a new one
-      let currentConvId = conversationId;
-      if (!currentConvId) {
-        currentConvId = await createConversation();
-        if (!currentConvId) throw new Error('Failed to create conversation');
+      let conversationId = currentConversationId;
+      if (!conversationId) {
+        console.log('No conversation selected, creating a new one');
+        conversationId = await createConversation();
+        
+        if (!conversationId) {
+          throw new Error('Failed to create conversation');
+        }
+        
+        console.log('New conversation created with ID:', conversationId);
       }
 
-      // Add user message immediately for better UX
+      // Add user message to UI immediately for better UX
       const userMessage: Message = { role: 'user', content };
       setMessages(prev => [...prev, userMessage]);
-      
-      // Scroll to bottom after adding user message
       scrollToBottom();
 
       // Clear input field
-      setMessageInput('');
+      setMessage('');
 
-      // Send message to API
-      const response = await sendMessage(currentConvId, content);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-      // Add AI response if present
-      if (response.ai_response) {
+      console.log(`Sending message to conversation ${conversationId}: ${content.substring(0, 20)}...`);
+      
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content
+        })
+      });
+
+      const responseBody = await response.text();
+      console.log(`Response from sending message: ${response.status}`, responseBody.substring(0, 100) + (responseBody.length > 100 ? '...' : ''));
+      
+      let jsonData;
+      try {
+        jsonData = responseBody ? JSON.parse(responseBody) : null;
+      } catch {
+        console.error('Error parsing response:', responseBody);
+      }
+
+      if (!response.ok) {
+        const errorMessage = jsonData?.message || response.statusText || `Error ${response.status}`;
+        throw new Error(`Failed to send message: ${errorMessage}`);
+      }
+
+      // If the response contains an AI response, add it to the messages
+      if (jsonData && jsonData.ai_response) {
         const aiMessage: Message = {
-          id: response.ai_response.id,
+          id: jsonData.ai_response.id,
           role: 'akuru',
-          content: response.ai_response.content
+          content: jsonData.ai_response.content
         };
         setMessages(prev => [...prev, aiMessage]);
         scrollToBottom();
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      const errorMessage = `Error sending message: ${err instanceof Error ? err.message : String(err)}`;
+      setError(errorMessage);
+      
+      // Notify parent component about conversation creation errors
+      if (err instanceof Error && 
+          err.message.includes('Failed to create conversation') && 
+          onConversationError) {
+        onConversationError(err.message);
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [scrollToBottom]);
+  }, [currentConversationId, createConversation, onConversationError]);
+
+  // Scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Clear messages
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setError(null);
+  }, []);
 
   return {
     messages,
-    messageInput,
-    setMessageInput,
     isProcessing,
-    messagesEndRef,
-    loadMessages,
-    handleSendMessage,
+    message,
+    error,
+    messagesEndRef: messagesEndRef as RefObject<HTMLDivElement>,
+    setMessage,
+    fetchMessages,
+    sendMessage,
+    clearMessages,
     scrollToBottom
   };
 };
+
+export default useChatMessages;

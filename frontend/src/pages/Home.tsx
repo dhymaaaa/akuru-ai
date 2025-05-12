@@ -1,174 +1,240 @@
 // pages/Home.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AuthModal from '../components/Auth/AuthModal';
-import ChatHeader from '../components/Chat/ChatHeader';
+import ChatLayout from '../components/Layout/ChatLayout';
+import ChatMessages from '../components/Chat/ChatMessages';
 import ChatInput from '../components/Chat/ChatInput';
-// import ChatMessages from '../components/Chat/ChatMessages';
 import EmptyChat from '../components/Chat/EmptyChat';
-import Sidebar from '../components/Sidebar/Sidebar';
+import { RefObject } from 'react';
+
+// Custom hooks
 import { useAuth } from '../hooks/useAuth';
 import { useConversations } from '../hooks/useConversations';
 import { useChatMessages } from '../hooks/useChatMessages';
 
+// Error Alert Component
+const ErrorAlert: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => (
+  <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="bg-red-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center">
+      <span>{message}</span>
+      <button 
+        className="ml-3 font-bold text-xl"
+        onClick={onClose}
+      >
+        &times;
+      </button>
+    </div>
+  </div>
+);
+
+// Loading overlay when operations are in progress
+// const LoadingOverlay: React.FC<{ isVisible: boolean }> = ({ isVisible }) => (
+//   isVisible ? (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+//       <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-lg">
+//         <div className="flex items-center space-x-4">
+//           <div className="animate-spin h-8 w-8 border-4 border-t-[#E9D8B5] border-[#1E1E1E] rounded-full"></div>
+//           <span className="text-white text-lg">Loading...</span>
+//         </div>
+//       </div>
+//     </div>
+//   ) : null
+// );
+
 const Home: React.FC = () => {
-  // Custom hooks
+  // Auth state
   const {
     userData,
-    isLoading,
-    error,
+    isLoading: authLoading,
+    error: authError,
     isAuthenticated,
-    isTryingFirst,
     handleSignUp,
     handleLogin,
-    handleTryFirst,
-    handleCloseModal,
-    showAuthModal
+    handleTryFirst
   } = useAuth();
 
+  // Error alert state
+  const [errorAlert, setErrorAlert] = useState<string | null>(null);
+  // const [showLoading, setShowLoading] = useState<boolean>(false);
+
+  // Handle errors from any source
+  const handleError = useCallback((errorMessage: string) => {
+    console.log('Showing error alert:', errorMessage);
+    setErrorAlert(errorMessage);
+    // Auto-hide after 5 seconds
+    setTimeout(() => setErrorAlert(null), 5000);
+  }, []);
+
+  // Conversation state
   const {
     conversations,
     currentConversation,
+    // isLoading: conversationsLoading,
+    error: conversationsError,
+    fetchConversations,
+    createConversation,
+    selectConversation,
     handleNewChat,
-    handleSelectConversation,
-    createNewConversation,
-    refreshConversations,
     formatConversationTitle
-  } = useConversations(isAuthenticated);
+  } = useConversations();
 
+  // Chat messages state
   const {
     messages,
-    messageInput,
-    setMessageInput,
     isProcessing,
+    message,
+    error: messagesError,
     messagesEndRef,
-    loadMessages,
-    handleSendMessage,
-    scrollToBottom
-  } = useChatMessages();
+    setMessage,
+    fetchMessages,
+    sendMessage,
+    clearMessages
+  } = useChatMessages(currentConversation, createConversation, handleError);
 
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // Load messages when conversation changes
+  // UI state
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
+  const [isTryingFirst, setIsTryingFirst] = useState<boolean>(false);
+  
+  // Consolidate errors from all sources
   useEffect(() => {
-    if (currentConversation !== null) {
-      loadMessages(currentConversation);
+    const firstError = authError || conversationsError || messagesError;
+    if (firstError) {
+      handleError(firstError);
     }
-  }, [currentConversation, loadMessages]);
+  }, [authError, conversationsError, messagesError, handleError]);
 
-  // Auto-scroll when messages change
+  // Show loading overlay when any operation is loading
+  // useEffect(() => {
+  //   setShowLoading(authLoading || conversationsLoading || isProcessing);
+  // }, [authLoading, conversationsLoading, isProcessing]);
+
+  // Fetch conversations when authenticated
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await handleSendMessage(messageInput, currentConversation, createNewConversation, isTryingFirst);
-    
-    // Refresh conversations list after sending a message
     if (isAuthenticated) {
-      refreshConversations();
+      fetchConversations().catch((err) => {
+        handleError(`Failed to load conversations: ${err instanceof Error ? err.message : String(err)}`);
+      });
     }
-  };
+  }, [isAuthenticated, fetchConversations, handleError]);
 
-  // Render not authenticated state
-  const renderNotAuthenticated = () => (
-    <div className="flex flex-col items-center justify-center h-full">
-      {isLoading ? (
-        <h1 className="text-3xl font-medium mb-4">Loading...</h1>
-      ) : (
-        <>
-          <h1 className="text-3xl font-medium mb-4">
-            Hello, {userData.name}
-          </h1>
-          {error && (
-            <div className="bg-red-500 bg-opacity-20 p-4 rounded-md mb-4">
-              <p className="text-red-300">{error}</p>
-            </div>
-          )}
-          <div className="text-center">
-            <div className="text-gray-400 mb-4">
-              <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
-                For a complete experience with saved conversations, please create an account or log in.
-              </span>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+  // Fetch messages when conversation is selected
+  useEffect(() => {
+    if (currentConversation) {
+      fetchMessages(currentConversation).catch((err) => {
+        handleError(`Failed to load messages: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    } else {
+      clearMessages();
+    }
+  }, [currentConversation, fetchMessages, clearMessages, handleError]);
+
+  // Auth modal handlers
+  const handleAuthSignUp = useCallback(() => {
+    handleSignUp();
+  }, [handleSignUp]);
+
+  const handleAuthLogin = useCallback(() => {
+    handleLogin();
+  }, [handleLogin]);
+
+  const handleAuthTryFirst = useCallback(() => {
+    const success = handleTryFirst();
+    if (success) {
+      setShowAuthModal(false);
+      setIsTryingFirst(true);
+    }
+  }, [handleTryFirst]);
+
+  const handleCloseModal = useCallback(() => {
+    setShowAuthModal(false);
+  }, []);
+
+  // Message handlers
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(message, isTryingFirst).catch((err) => {
+      handleError(`Failed to send message: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }, [message, isTryingFirst, sendMessage, handleError]);
+
+  // Conversation handlers
+  const handleSelectConversation = useCallback((id: number) => {
+    selectConversation(id);
+  }, [selectConversation]);
 
   return (
     <>
+      {/* Error Alert */}
+      {errorAlert && (
+        <ErrorAlert 
+          message={errorAlert} 
+          onClose={() => setErrorAlert(null)} 
+        />
+      )}
+      
+      {/* Loading Overlay */}
+      {/* <LoadingOverlay isVisible={showLoading} /> */}
+      
+      {/* Auth Modal */}
       {!isAuthenticated && showAuthModal && !isTryingFirst && (
         <AuthModal
           isAuthenticated={isAuthenticated}
           onClose={handleCloseModal}
-          onSignUp={handleSignUp}
-          onLogin={handleLogin}
-          onTryFirst={handleTryFirst}
+          onSignUp={handleAuthSignUp}
+          onLogin={handleAuthLogin}
+          onTryFirst={handleAuthTryFirst}
         />
       )}
       
-      <div className="flex h-screen bg-[#292929] text-white">
-        {/* Sidebar */}
-        <Sidebar
-          userData={userData}
-          conversations={conversations}
-          currentConversation={currentConversation}
-          handleNewChat={handleNewChat}
-          handleSelectConversation={handleSelectConversation}
-          formatConversationTitle={formatConversationTitle}
-        />
-        
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col h-screen">
-          {/* Fixed Header */}
-          <ChatHeader />
-
-          {/* Scrollable Middle Content */}
-          <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
-            <div className="h-full p-6 flex flex-col justify-end">
-              {isAuthenticated ? (
-                messages.length === 0 ? (
-                  <EmptyChat />
-                ) : (
-                  <div className="space-y-6 min-h-0">
-                    {messages.map((message, index) => (
-                      <div
-                        key={index}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[70%] rounded-lg p-4 ${message.role === 'user'
-                            ? 'bg-[#E9D8B5] text-black'
-                            : 'bg-[#1E1E1E] text-white'
-                            }`}
-                        >
-                          {message.content}
-                        </div>
-                      </div>
-                    ))}
-                    {/* This div is used to scroll to bottom */}
-                    <div ref={messagesEndRef} />
-                  </div>
-                )
+      {/* Main Layout */}
+      <ChatLayout
+        conversations={conversations}
+        currentConversation={currentConversation}
+        userData={userData}
+        onNewChat={handleNewChat}
+        onSelectConversation={handleSelectConversation}
+        formatConversationTitle={formatConversationTitle}
+      >
+        {/* Scrollable Middle Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="h-full p-6">
+            {isAuthenticated || isTryingFirst ? (
+              messages.length === 0 ? (
+                // Empty state for chat
+                <EmptyChat 
+                  isAuthenticated={true}
+                  userData={userData}
+                  isLoading={authLoading}
+                  error={null} // Using the alert for errors instead
+                />
               ) : (
-                renderNotAuthenticated()
-              )}
-            </div>
+                // Chat messages
+                <ChatMessages
+                  messages={messages}
+                  messagesEndRef={messagesEndRef as RefObject<HTMLDivElement>}
+                />
+              )
+            ) : (
+              // Not authenticated view
+              <EmptyChat 
+                isAuthenticated={false}
+                userData={userData}
+                isLoading={authLoading}
+                error={null} // Using the alert for errors instead
+              />
+            )}
           </div>
-
-          {/* Fixed Bottom Input */}
-          <ChatInput
-            message={messageInput}
-            setMessage={setMessageInput}
-            handleSubmit={handleSubmit}
-            isProcessing={isProcessing}
-            isDisabled={!isAuthenticated || isProcessing}
-          />
         </div>
-      </div>
+
+        {/* Fixed Bottom Input */}
+        <ChatInput
+          message={message}
+          setMessage={setMessage}
+          isAuthenticated={isAuthenticated || isTryingFirst}
+          isProcessing={isProcessing}
+          onSubmit={handleSubmit}
+        />
+      </ChatLayout>
     </>
   );
 };

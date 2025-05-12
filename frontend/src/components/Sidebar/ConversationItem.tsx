@@ -1,23 +1,30 @@
-// components/Sidebar/ConversationItem.tsx
 import React from 'react';
-import { Conversation } from '../../types';
+
+interface Conversation {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
 
 interface ConversationItemProps {
-  conversation: Conversation; // We keep this prop for type consistency and future use
+  conversation: Conversation;
   isActive: boolean;
-  onClick: () => void;
-  title: string;
+  onSelect: (id: number) => void;
+  formatTitle: (conversation: Conversation) => string;
 }
 
 const ConversationItem: React.FC<ConversationItemProps> = ({
+  conversation,
   isActive,
-  onClick,
-  title
+  onSelect,
+  formatTitle
 }) => {
   return (
     <div
       className={`flex items-center px-4 py-3 mx-4 ${isActive ? 'bg-[#292929]' : 'hover:bg-[#292929]'} rounded-lg transition-all duration-200 cursor-pointer hover:shadow-md`}
-      onClick={onClick}
+      onClick={() => onSelect(conversation.id)}
     >
       <div className="w-6 h-6 flex items-center justify-center mr-3">
         <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
@@ -48,7 +55,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
           </g>
         </svg>
       </div>
-      <span className="text-sm">{title}</span>
+      <span className="text-sm">{formatTitle(conversation)}</span>
     </div>
   );
 };

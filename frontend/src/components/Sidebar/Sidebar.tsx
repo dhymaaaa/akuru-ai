@@ -1,25 +1,28 @@
 import React from 'react';
-import Icon from '@mdi/react';
-import { mdiAccountCircle } from '@mdi/js';
-import { Conversation, UserData } from '../../types';
 import NewChatButton from './NewChatButton';
-import ConversationItem from './ConversationItem';
+import ConversationList from './ConversationList';
+import UserProfile from './UserProfile';
+import { Conversation } from '@/types';
+
 
 interface SidebarProps {
-  userData: UserData;
   conversations: Conversation[];
   currentConversation: number | null;
-  handleNewChat: () => void;
-  handleSelectConversation: (id: number) => void;
+  userData: {
+    name: string;
+    email: string;
+  };
+  onNewChat: () => void;
+  onSelectConversation: (id: number) => void;
   formatConversationTitle: (conversation: Conversation) => string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  userData,
   conversations,
   currentConversation,
-  handleNewChat,
-  handleSelectConversation,
+  userData,
+  onNewChat,
+  onSelectConversation,
   formatConversationTitle
 }) => {
   return (
@@ -31,29 +34,17 @@ const Sidebar: React.FC<SidebarProps> = ({
           </svg>
         </button>
       </div>
-      
-      <NewChatButton onClick={handleNewChat} />
-      
+      <NewChatButton onClick={onNewChat} />
       <div className="px-4 py-2 mt-2">
         <h3 className="text-sm font-medium text-white">Recents</h3>
       </div>
-      
-      <div className="flex-1 overflow-y-auto">
-        {conversations.map((conversation) => (
-          <ConversationItem
-            key={conversation.id}
-            conversation={conversation}
-            isActive={currentConversation === conversation.id}
-            onClick={() => handleSelectConversation(conversation.id)}
-            title={formatConversationTitle(conversation)}
-          />
-        ))}
-      </div>
-      
-      <div className="p-4 border-t border-[#292929] flex items-center">
-        <Icon path={mdiAccountCircle} size={1} className='text-[#E9D8B5]' />
-        <span className="text-sm ml-3">{userData.email || 'Loading...'}</span>
-      </div>
+      <ConversationList
+        conversations={conversations}
+        currentConversation={currentConversation}
+        onSelectConversation={onSelectConversation}
+        formatConversationTitle={formatConversationTitle}
+      />
+      <UserProfile email={userData.email} />
     </div>
   );
 };

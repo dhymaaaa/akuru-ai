@@ -1,34 +1,28 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 
 interface AuthModalProps {
-    isAuthenticated: boolean;
-    onClose: () => void;
-    onSignUp: () => void;
-    onLogin: () => void;
-    onTryFirst: () => void;
+  isAuthenticated: boolean;
+  onClose: () => void;
+  onSignUp: () => void;
+  onLogin: () => void;
+  onTryFirst: () => void;
 }
 
-const AuthModal = ({ isAuthenticated, onClose, onSignUp, onLogin, onTryFirst }: AuthModalProps) => {
-    const [isOpen, setIsOpen] = useState(true);
+const AuthModal: React.FC<AuthModalProps> = ({
+  isAuthenticated,
+  onClose,
+  onSignUp,
+  onLogin,
+  onTryFirst
+}) => {
+  if (isAuthenticated) {
+    return null;
+  }
 
-    // Close modal if user is authenticated
-    useEffect(() => {
-        if (isAuthenticated) {
-            setIsOpen(false);
-        }
-    }, [isAuthenticated]);
-
-    const handleClose = () => {
-        setIsOpen(false);
-        onClose();
-    };
-
-    if (!isOpen || isAuthenticated) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop with blur effect */}
-            <div className="absolute inset-0 backdrop-blur-md bg-black/30" onClick={handleClose}></div>
+            <div className="absolute inset-0 backdrop-blur-md bg-black/30" onClick={onClose}></div>
             
             <div className="relative z-10 bg-[#1E1E1E] rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden border border-[#3A3A3A]">
                 <div className="flex justify-center items-center bg-gradient-to-r from-[#292929] to-[#3D3D3D] p-6 text-center relative">
@@ -77,7 +71,7 @@ const AuthModal = ({ isAuthenticated, onClose, onSignUp, onLogin, onTryFirst }: 
                     </svg>
                     <button
                         className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
-                        onClick={handleClose}
+                        onClick={onClose}
                         aria-label="Close"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -118,7 +112,7 @@ const AuthModal = ({ isAuthenticated, onClose, onSignUp, onLogin, onTryFirst }: 
                 </div>
             </div>
         </div>
-    );
+  );
 };
 
 export default AuthModal;
