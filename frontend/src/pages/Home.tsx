@@ -27,19 +27,6 @@ const ErrorAlert: React.FC<{ message: string; onClose: () => void }> = ({ messag
   </div>
 );
 
-// Loading overlay when operations are in progress
-// const LoadingOverlay: React.FC<{ isVisible: boolean }> = ({ isVisible }) => (
-//   isVisible ? (
-//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-//       <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-lg">
-//         <div className="flex items-center space-x-4">
-//           <div className="animate-spin h-8 w-8 border-4 border-t-[#E9D8B5] border-[#1E1E1E] rounded-full"></div>
-//           <span className="text-white text-lg">Loading...</span>
-//         </div>
-//       </div>
-//     </div>
-//   ) : null
-// );
 
 const Home: React.FC = () => {
   // Auth state
@@ -55,7 +42,6 @@ const Home: React.FC = () => {
 
   // Error alert state
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
-  // const [showLoading, setShowLoading] = useState<boolean>(false);
 
   // Handle errors from any source
   const handleError = useCallback((errorMessage: string) => {
@@ -69,7 +55,6 @@ const Home: React.FC = () => {
   const {
     conversations,
     currentConversation,
-    // isLoading: conversationsLoading,
     error: conversationsError,
     fetchConversations,
     createConversation,
@@ -102,11 +87,6 @@ const Home: React.FC = () => {
       handleError(firstError);
     }
   }, [authError, conversationsError, messagesError, handleError]);
-
-  // Show loading overlay when any operation is loading
-  // useEffect(() => {
-  //   setShowLoading(authLoading || conversationsLoading || isProcessing);
-  // }, [authLoading, conversationsLoading, isProcessing]);
 
   // Fetch conversations when authenticated
   useEffect(() => {
@@ -171,9 +151,6 @@ const Home: React.FC = () => {
           onClose={() => setErrorAlert(null)} 
         />
       )}
-      
-      {/* Loading Overlay */}
-      {/* <LoadingOverlay isVisible={showLoading} /> */}
       
       {/* Auth Modal */}
       {!isAuthenticated && showAuthModal && !isTryingFirst && (
