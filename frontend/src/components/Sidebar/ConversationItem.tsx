@@ -13,13 +13,15 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (id: number) => void;
   formatTitle: (conversation: Conversation) => string;
+  isCollapsed: boolean;
 }
 
 const ConversationItem: React.FC<ConversationItemProps> = ({
   conversation,
   isActive,
   onSelect,
-  formatTitle
+  formatTitle,
+  isCollapsed
 }) => {
   return (
     <div
@@ -55,7 +57,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
           </g>
         </svg>
       </div>
-      <span className="text-sm">{formatTitle(conversation)}</span>
+      {!isCollapsed && <span className="text-sm">{formatTitle(conversation)}</span>}
     </div>
   );
 };

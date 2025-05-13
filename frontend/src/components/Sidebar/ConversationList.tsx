@@ -14,13 +14,15 @@ interface ConversationListProps {
   currentConversation: number | null;
   onSelectConversation: (id: number) => void;
   formatConversationTitle: (conversation: Conversation) => string;
+  isCollapsed: boolean;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({
   conversations,
   currentConversation,
   onSelectConversation,
-  formatConversationTitle
+  formatConversationTitle,
+  isCollapsed  // Make sure to include this in the destructuring
 }) => {
   return (
     <div className="flex-1 overflow-y-auto">
@@ -31,6 +33,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
           isActive={currentConversation === conversation.id}
           onSelect={onSelectConversation}
           formatTitle={formatConversationTitle}
+          isCollapsed={isCollapsed}  // Pass the prop to ConversationItem
         />
       ))}
     </div>
