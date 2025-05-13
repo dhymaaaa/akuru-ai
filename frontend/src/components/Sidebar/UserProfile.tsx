@@ -5,9 +5,10 @@ import { mdiAccountCircle, mdiLogout } from '@mdi/js';
 interface UserProfileProps {
   email: string;
   isCollapsed: boolean;
-  onLogout?: () => void;
+  onLogout?: () => Promise<void> | void; // Updated to support async
   onProfileToggle?: (isExpanded: boolean) => void;
-  onExpandSidebar?: () => void; // New prop to request sidebar expansion
+  onExpandSidebar?: () => void;
+  loginPageUrl?: string; // New prop for the login page URL
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({
@@ -15,9 +16,11 @@ const UserProfile: React.FC<UserProfileProps> = ({
   isCollapsed,
   onLogout = () => console.log('Logout clicked'),
   onProfileToggle = () => {},
-  onExpandSidebar = () => {} // Default empty function
+  onExpandSidebar = () => {},
+  loginPageUrl = '/login' // Default login page path
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const profileRef = useRef<HTMLDivElement>(null);
  
   const toggleExpanded = () => {
@@ -36,13 +39,34 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }
   };
 
+  // Handle the logout process
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the outside click
+    
+    // Prevent double-clicks
+    if (isLoggingOut) return;
+    
+    setIsLoggingOut(true);
+    
+    try {
+      // Call the provided logout function
+      await onLogout();
+      
+      // Redirect to login page
+      window.location.href = loginPageUrl;
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false);
+    }
+  };
+
   // Reset expanded state when sidebar collapses
   useEffect(() => {
     if (isCollapsed && isExpanded) {
       setIsExpanded(false);
       onProfileToggle(false);
     }
-  }, [isCollapsed]);
+  }, [isCollapsed, isExpanded, onProfileToggle]);
 
   // Handle clicks outside the component
   useEffect(() => {
@@ -57,6 +81,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
         onProfileToggle(false);
       }
     };
+    
     // Add event listener when the component mounts
     document.addEventListener('mousedown', handleClickOutside);
    
@@ -72,14 +97,18 @@ const UserProfile: React.FC<UserProfileProps> = ({
       {isExpanded && !isCollapsed && (
         <div className={`${isCollapsed ? 'flex justify-center' : 'px-4'} mb-3`}>
           <button
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering the outside click
-              onLogout();
-            }}
-            className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition hover:bg-[#363636]"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={`
+              flex items-center space-x-2 w-full rounded-lg px-4 py-3 
+              bg-[#292929] transition hover:bg-[#363636]
+              ${isLoggingOut ? 'opacity-75 cursor-not-allowed' : ''}
+            `}
           >
             <Icon path={mdiLogout} size={0.9} className="text-[#E9D8B5]" />
-            {!isCollapsed && <span>Log out</span>}
+            {!isCollapsed && (
+              <span>{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
+            )}
           </button>
         </div>
       )}

@@ -14,6 +14,8 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectConversation: (id: number) => void;
   formatConversationTitle: (conversation: Conversation) => string;
+  onLogout?: () => Promise<void> | void; 
+  loginPageUrl?: string; 
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -22,7 +24,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   userData,
   onNewChat,
   onSelectConversation,
-  formatConversationTitle
+  formatConversationTitle,
+  onLogout = async () => {
+    localStorage.removeItem('authToken'); 
+    sessionStorage.clear(); 
+  },
+  loginPageUrl = '/login'
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false); // Default to expanded state
   const [isProfileExpanded, setIsProfileExpanded] = useState(false); // Track profile expanded state
@@ -78,6 +85,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed={isCollapsed}
           onProfileToggle={handleProfileToggle}
           onExpandSidebar={expandSidebar}
+          onLogout={onLogout}
+          loginPageUrl={loginPageUrl}
         />
       </div>
     </div>
