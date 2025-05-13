@@ -20,7 +20,7 @@ const EmptyChat: React.FC<EmptyChatProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <h1 className="text-3xl font-medium mb-4">
-          Welcome to Akuru AI
+          Welcome {userData.name}
         </h1>
         <div className="text-gray-400 mb-4 text-center">
           <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
