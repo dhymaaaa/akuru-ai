@@ -12,6 +12,91 @@ interface ChatMessagesProps {
   messagesEndRef: RefObject<HTMLDivElement | null>;
 }
 
+// Helper function to detect Dhivehi text
+const containsDhivehi = (text: string): boolean => {
+  return /[\u0780-\u07BF]/.test(text);
+};
+
+// Function to process mixed content paragraphs
+const formatMessageContent = (content: string) => {
+  // If there's no Dhivehi text, return as is
+  if (!containsDhivehi(content)) {
+    return content;
+  }
+
+  // Split content by line breaks
+  const lines = content.split('\n');
+  return lines.map((line, index) => {
+    // Check if line contains Dhivehi
+    if (containsDhivehi(line)) {
+      // Check if the line is a mix of Dhivehi and non-Dhivehi
+      const hasMixedContent = /[a-zA-Z0-9]/.test(line) && containsDhivehi(line);
+      
+      if (hasMixedContent) {
+        // For mixed content, we need to split into paragraphs
+        // This simple version just puts the Dhivehi in a separate block
+        // First, find all Dhivehi segments
+        const dhivehiSegments = line.match(/[\u0780-\u07BF]+[^\n]*/g) || [];
+        
+        // Replace Dhivehi segments with placeholder to get non-Dhivehi parts
+        let nonDhivehiContent = line;
+        dhivehiSegments.forEach((segment, i) => {
+          nonDhivehiContent = nonDhivehiContent.replace(segment, `__DHIVEHI_${i}__`);
+        });
+        
+        // Split non-Dhivehi by placeholders
+        const parts = nonDhivehiContent.split(/__DHIVEHI_\d+__/);
+        
+        // Reconstruct with proper styling
+        const result = [];
+        
+        for (let i = 0; i < parts.length; i++) {
+          // Add non-Dhivehi part if not empty
+          if (parts[i].trim()) {
+            result.push(
+              <span key={`non-dhivehi-${index}-${i}`} className="text-left ltr inline">
+                {parts[i]}
+              </span>
+            );
+          }
+          
+          // Add Dhivehi part if available
+          if (i < dhivehiSegments.length) {
+            result.push(
+              <div key={`dhivehi-${index}-${i}`} className="block rtl text-right mt-3">
+                {dhivehiSegments[i]}
+              </div>
+            );
+          }
+        }
+        
+        return (
+          <React.Fragment key={`mixed-${index}`}>
+            {index > 0 && <br />}
+            {result}
+          </React.Fragment>
+        );
+      } else {
+        // For pure Dhivehi lines
+        return (
+          <React.Fragment key={`dhivehi-line-${index}`}>
+            {index > 0 && <br />}
+            <div className="block rtl text-right mt-3">{line}</div>
+          </React.Fragment>
+        );
+      }
+    } else {
+      // For pure non-Dhivehi lines
+      return (
+        <React.Fragment key={`non-dhivehi-line-${index}`}>
+          {index > 0 && <br />}
+          <span className="text-left ltr">{line}</span>
+        </React.Fragment>
+      );
+    }
+  });
+};
+
 const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, messagesEndRef }) => {
   // Custom SVG component for the Akuru icon
   const AkuruIcon = () => (
@@ -23,7 +108,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, messagesEndRef })
       className="fill-current"
     >
       <g fill="#E9D8B5" transform="translate(0.000000,130.000000) scale(0.100000,-0.100000)">
-        <path d="M299 996 c-82 -25 -111 -86 -107 -221 l3 -90 30 0 30 0 5 107 c8 164
+        <path d="M299 996 c-82 -25 -111 -86 -107 -221 l3 -90 30 0 30 0 5 107 c8 164,
         -20 152 368 158 300 5 317 6 320 24 2 10 -2 22 -10 27 -20 13 -596 9 -639 -5z"/>
         <path d="M1005 996 c-16 -12 -17 -16 -6 -30 7 -9 28 -16 45 -16 17 0 41 -7 52
         -15 39 -27 46 -63 42 -238 -4 -228 18 -211 -278 -215 l-229 -3 -68 -65 -68
@@ -60,11 +145,11 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, messagesEndRef })
                     <AkuruIcon />
                   </div>
                   <div className="flex-1">
-                    {message.content}
+                    {formatMessageContent(message.content)}
                   </div>
                 </div>
               ) : (
-                message.content
+                formatMessageContent(message.content)
               )}
             </div>
           </div>
