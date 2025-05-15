@@ -6,6 +6,7 @@ import ChatMessages from '../components/Chat/ChatMessages';
 import ChatInput from '../components/Chat/ChatInput';
 import EmptyChat from '../components/Chat/EmptyChat';
 import { RefObject } from 'react';
+import NonAuthChatLayout from '@/components/Layout/NonAuthChatLayout';
 
 // Custom hooks
 import { useAuth } from '../hooks/useAuth';
@@ -17,16 +18,12 @@ const ErrorAlert: React.FC<{ message: string; onClose: () => void }> = ({ messag
   <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
     <div className="bg-red-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center">
       <span>{message}</span>
-      <button 
-        className="ml-3 font-bold text-xl"
-        onClick={onClose}
-      >
+      <button className="ml-3 font-bold text-xl" onClick={onClose}>
         &times;
       </button>
     </div>
   </div>
 );
-
 
 const Home: React.FC = () => {
   // Auth state
@@ -42,6 +39,10 @@ const Home: React.FC = () => {
 
   // Error alert state
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
+
+  // UI state
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
+  const [isTryingFirst, setIsTryingFirst] = useState<boolean>(false);
 
   // Handle errors from any source
   const handleError = useCallback((errorMessage: string) => {
@@ -76,10 +77,9 @@ const Home: React.FC = () => {
     clearMessages
   } = useChatMessages(currentConversation, createConversation, handleError);
 
-  // UI state
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
-  const [isTryingFirst, setIsTryingFirst] = useState<boolean>(false);
-  
+  // Consolidated auth/access state - a user has access if they're authenticated or trying first
+  const hasAccessToChat = isAuthenticated || isTryingFirst;
+
   // Consolidate errors from all sources
   useEffect(() => {
     const firstError = authError || conversationsError || messagesError;
@@ -130,40 +130,89 @@ const Home: React.FC = () => {
   }, []);
 
   // Message handlers
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    sendMessage(message, isTryingFirst).catch((err) => {
-      handleError(`Failed to send message: ${err instanceof Error ? err.message : String(err)}`);
-    });
-  }, [message, isTryingFirst, sendMessage, handleError]);
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      sendMessage(message, isTryingFirst).catch((err) => {
+        handleError(`Failed to send message: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    },
+    [message, isTryingFirst, sendMessage, handleError]
+  );
 
   // Conversation handlers
-  const handleSelectConversation = useCallback((id: number) => {
-    selectConversation(id);
-  }, [selectConversation]);
+  const handleSelectConversation = useCallback(
+    (id: number) => {
+      selectConversation(id);
+    },
+    [selectConversation]
+  );
 
+  // Render the appropriate chat content based on authentication state
+  const renderChatContent = () => {
+    // If we have messages, show them
+    if (messages.length > 0) {
+      return (
+        <ChatMessages
+          messages={messages}
+          messagesEndRef={messagesEndRef as RefObject<HTMLDivElement>}
+        />
+      );
+    }
+    
+    // Otherwise show empty state
+    return (
+      <EmptyChat
+        isAuthenticated={isAuthenticated}
+        userData={userData}
+        isLoading={authLoading}
+        error={null}
+      />
+    );
+  };
+
+  // Main render logic
+  if (!hasAccessToChat) {
+    // Not authenticated and not trying first - show non-auth layout
+    return (
+      <>
+        {errorAlert && (
+          <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
+        )}
+        
+        {showAuthModal && (
+          <AuthModal
+            isAuthenticated={isAuthenticated}
+            onClose={handleCloseModal}
+            onSignUp={handleAuthSignUp}
+            onLogin={handleAuthLogin}
+            onTryFirst={handleAuthTryFirst}
+          />
+        )}
+        
+        <NonAuthChatLayout
+          onLogin={handleAuthLogin}
+          onSignUp={handleAuthSignUp}
+          onTryFirst={handleAuthTryFirst}
+        >
+          <EmptyChat
+            isAuthenticated={false}
+            userData={userData}
+            isLoading={authLoading}
+            error={null}
+          />
+        </NonAuthChatLayout>
+      </>
+    );
+  }
+
+  // User has access (authenticated or trying first) - show chat layout
   return (
     <>
-      {/* Error Alert */}
       {errorAlert && (
-        <ErrorAlert 
-          message={errorAlert} 
-          onClose={() => setErrorAlert(null)} 
-        />
+        <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
       )}
       
-      {/* Auth Modal */}
-      {!isAuthenticated && showAuthModal && !isTryingFirst && (
-        <AuthModal
-          isAuthenticated={isAuthenticated}
-          onClose={handleCloseModal}
-          onSignUp={handleAuthSignUp}
-          onLogin={handleAuthLogin}
-          onTryFirst={handleAuthTryFirst}
-        />
-      )}
-      
-      {/* Main Layout */}
       <ChatLayout
         conversations={conversations}
         currentConversation={currentConversation}
@@ -175,31 +224,7 @@ const Home: React.FC = () => {
         {/* Scrollable Middle Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="h-full p-6">
-            {isAuthenticated || isTryingFirst ? (
-              messages.length === 0 ? (
-                // Empty state for chat
-                <EmptyChat 
-                  isAuthenticated={true}
-                  userData={userData}
-                  isLoading={authLoading}
-                  error={null} // Using the alert for errors instead
-                />
-              ) : (
-                // Chat messages
-                <ChatMessages
-                  messages={messages}
-                  messagesEndRef={messagesEndRef as RefObject<HTMLDivElement>}
-                />
-              )
-            ) : (
-              // Not authenticated view
-              <EmptyChat 
-                isAuthenticated={false}
-                userData={userData}
-                isLoading={authLoading}
-                error={null} // Using the alert for errors instead
-              />
-            )}
+            {renderChatContent()}
           </div>
         </div>
 
@@ -207,7 +232,7 @@ const Home: React.FC = () => {
         <ChatInput
           message={message}
           setMessage={setMessage}
-          isAuthenticated={isAuthenticated || isTryingFirst}
+          isAuthenticated={hasAccessToChat}
           isProcessing={isProcessing}
           onSubmit={handleSubmit}
         />

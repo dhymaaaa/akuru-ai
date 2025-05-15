@@ -1,15 +1,19 @@
-// components/Chat/ChatHeader.tsx
 import React from 'react';
 
 interface ChatHeaderProps {
-  // You can add props if needed, such as a title or additional controls
+  isLoggedIn: boolean;
   conversationTitle?: string;
   onThemeToggle?: () => void;
+  onLogin?: () => void;
+  onRegister?: () => void;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ 
+const ChatHeader: React.FC<ChatHeaderProps> = ({
+  isLoggedIn,
   conversationTitle,
-  onThemeToggle 
+  onThemeToggle,
+  onLogin,
+  onRegister
 }) => {
   return (
     <div className="flex justify-between items-center p-4 bg-[#292929]">
@@ -57,42 +61,60 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             />
           </g>
         </svg>
-        
-        {/* Display conversation title if provided */}
-        {conversationTitle && (
+
+        {/* Display conversation title if provided and logged in */}
+        {isLoggedIn && conversationTitle && (
           <div className="ml-4 text-lg font-medium text-[#E9D8B5]">
             {conversationTitle}
           </div>
         )}
       </div>
-      
-      <div className="flex justify-end">
-        {/* Theme toggle button */}
-        <button 
-          className="p-2"
-          onClick={onThemeToggle}
-          aria-label="Toggle dark/light mode"
-        >
-          <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
-            width="15pt" height="15pt" viewBox="0 0 512.000000 512.000000"
-            preserveAspectRatio="xMidYMid meet">
-            <g transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
-              fill="#E9D8B5" stroke="none">
-              <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
-                -526 -710 -501 -1007 -310 -2193 483 -2988 502 -504 1199 -781 1899 -756 548
-                20 1015 179 1455 496 472 339 815 837 975 1415 35 128 36 147 11 203 -26 57
-                -84 87 -156 81 -44 -4 -64 -13 -119 -54 -158 -116 -259 -179 -381 -239 -283
-                -138 -527 -195 -839 -195 -515 0 -993 197 -1356 559 -367 367 -565 841 -564
-                1356 1 443 131 839 380 1158 63 81 81 134 65 189 -23 76 -93 129 -168 127 -21
-                0 -90 -18 -153 -38z m-284 -573 c-78 -187 -133 -397 -156 -598 -14 -123 -14
-                -410 0 -525 94 -767 564 -1432 1245 -1764 314 -154 585 -219 940 -228 356 -9
-                626 42 964 184 57 24 106 41 109 39 8 -8 -120 -213 -199 -319 -440 -591 -1099
-                -927 -1819 -927 -505 0 -948 147 -1354 448 -275 205 -510 490 -669 810 -159
-                321 -229 624 -229 987 1 315 45 554 154 830 163 413 462 784 833 1032 71 48
-                212 132 222 133 1 0 -18 -46 -41 -102z"/>
-            </g>
-          </svg>
-        </button>
+
+      <div className="flex items-center">
+        {isLoggedIn ? (
+          /* Theme toggle button - only for logged in users */
+          <button
+            className="p-2"
+            onClick={onThemeToggle}
+            aria-label="Toggle dark/light mode"
+          >
+            <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+              width="15pt" height="15pt" viewBox="0 0 512.000000 512.000000"
+              preserveAspectRatio="xMidYMid meet">
+              <g transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
+                fill="#E9D8B5" stroke="none">
+                <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
+                  -526 -710 -501 -1007 -310 -2193 483 -2988 502 -504 1199 -781 1899 -756 548
+                  20 1015 179 1455 496 472 339 815 837 975 1415 35 128 36 147 11 203 -26 57
+                  -84 87 -156 81 -44 -4 -64 -13 -119 -54 -158 -116 -259 -179 -381 -239 -283
+                  -138 -527 -195 -839 -195 -515 0 -993 197 -1356 559 -367 367 -565 841 -564
+                  1356 1 443 131 839 380 1158 63 81 81 134 65 189 -23 76 -93 129 -168 127 -21
+                  0 -90 -18 -153 -38z m-284 -573 c-78 -187 -133 -397 -156 -598 -14 -123 -14
+                  -410 0 -525 94 -767 564 -1432 1245 -1764 314 -154 585 -219 940 -228 356 -9
+                  626 42 964 184 57 24 106 41 109 39 8 -8 -120 -213 -199 -319 -440 -591 -1099
+                  -927 -1819 -927 -505 0 -948 147 -1354 448 -275 205 -510 490 -669 810 -159
+                  321 -229 624 -229 987 1 315 45 554 154 830 163 413 462 784 833 1032 71 48
+                  212 132 222 133 1 0 -18 -46 -41 -102z"/>
+              </g>
+            </svg>
+          </button>
+        ) : (
+          /* Login/Register buttons - for non-logged in users */
+          <div className="flex space-x-2">
+            <button
+              className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 py-2 rounded-full text-sm"
+              onClick={onLogin}
+            >
+              Login
+            </button>
+            <button
+              className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 py-2 rounded-full text-sm"
+              onClick={onRegister}
+            >
+              Register
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

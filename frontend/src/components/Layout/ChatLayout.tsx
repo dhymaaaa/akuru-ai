@@ -26,6 +26,8 @@ const ChatLayout: React.FC<ChatLayoutProps> = ({
   formatConversationTitle,
   children
 }) => {
+  const isLoggedIn = Boolean(userData?.email);
+
   return (
     <div className="flex h-screen bg-[#292929] text-white">
       {/* Sidebar */}
@@ -37,12 +39,12 @@ const ChatLayout: React.FC<ChatLayoutProps> = ({
         onSelectConversation={onSelectConversation}
         formatConversationTitle={formatConversationTitle}
       />
-      
+
       {/* Main content area */}
       <div className="flex-1 flex flex-col h-screen">
         {/* Header */}
-        <ChatHeader />
-        
+        <ChatHeader isLoggedIn={isLoggedIn} />
+
         {/* Content */}
         {children}
       </div>
