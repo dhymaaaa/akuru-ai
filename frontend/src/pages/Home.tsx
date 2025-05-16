@@ -78,7 +78,8 @@ const Home: React.FC = () => {
   } = useChatMessages(currentConversation, createConversation, handleError);
 
   // Consolidated auth/access state - a user has access if they're authenticated or trying first
-  const hasAccessToChat = isAuthenticated || isTryingFirst;
+  const hasAccessToChat = isAuthenticated;
+  // const hasAccessToChat = isAuthenticated || isTryingFirst;
 
   // Consolidate errors from all sources
   useEffect(() => {
@@ -173,7 +174,7 @@ const Home: React.FC = () => {
 
   // Main render logic
   if (!hasAccessToChat) {
-    // Not authenticated and not trying first - show non-auth layout
+    // Not authenticated and trying first - show non-auth layout
     return (
       <>
         {errorAlert && (
@@ -206,7 +207,7 @@ const Home: React.FC = () => {
     );
   }
 
-  // User has access (authenticated or trying first) - show chat layout
+  // User has access - show chat layout
   return (
     <>
       {errorAlert && (
