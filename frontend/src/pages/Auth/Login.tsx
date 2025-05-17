@@ -1,4 +1,5 @@
-import { useState, FormEvent } from 'react';
+// Updated Login component with proper TypeScript types
+import { useState, FormEvent, MouseEvent } from 'react';
 // import { useState, useEffect, FormEvent } from 'react';
 import Typewriter from "@/fancy/components/text/typewriter"
 import { Link, useNavigate } from 'react-router-dom';
@@ -20,6 +21,17 @@ export const Login = () => {
     //         window.history.replaceState({}, document.title);
     //     }
     // }, [location]);
+
+    // Updated with proper type for the event parameter
+    const handleAuthTryFirst = (e: MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault(); // Prevent default button behavior
+        
+        // Set the flag in localStorage to indicate guest/try first mode
+        localStorage.setItem('guestMode', 'true');
+        
+        // Navigate to home page
+        navigate('/');
+    };
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -153,9 +165,13 @@ export const Login = () => {
                             </button>
                         </div>
                         <div className="flex justify-between text-sm text-[#E9D8B5] pt-2 w-3/4 mt-2">
-                            <Link to="/try" className="hover:underline">
+                            {/* Updated with properly typed event handler */}
+                            <button 
+                                onClick={handleAuthTryFirst}
+                                className="hover:underline text-left text-[#E9D8B5] text-sm bg-transparent border-0 p-0 cursor-pointer"
+                            >
                                 Try it first
-                            </Link>
+                            </button>
                             <Link to="/signup" className="hover:underline">
                                 Sign up
                             </Link>

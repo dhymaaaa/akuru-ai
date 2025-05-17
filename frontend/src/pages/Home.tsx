@@ -1,4 +1,4 @@
-// pages/Home.tsx
+// Updated Home component with fixed AuthModal logic
 import React, { useState, useEffect, useCallback } from 'react';
 import AuthModal from '../components/Auth/AuthModal';
 import ChatLayout from '../components/Layout/ChatLayout';
@@ -78,8 +78,7 @@ const Home: React.FC = () => {
   } = useChatMessages(currentConversation, createConversation, handleError);
 
   // Consolidated auth/access state - a user has access if they're authenticated or trying first
-  const hasAccessToChat = isAuthenticated;
-  // const hasAccessToChat = isAuthenticated || isTryingFirst;
+  const hasAccessToChat = isAuthenticated || isTryingFirst;
 
   // Consolidate errors from all sources
   useEffect(() => {
@@ -172,16 +171,22 @@ const Home: React.FC = () => {
     );
   };
 
-  // Main render logic
+  // FIXED: Always render the AuthModal if not authenticated and not trying first
+  // and showAuthModal is true
+  const shouldShowAuthModal = !isAuthenticated && !isTryingFirst && showAuthModal;
+
+  // FIXED: Show error alert in all cases
+  const errorAlertComponent = errorAlert && (
+    <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
+  );
+
+  // Main render logic - UPDATED
   if (!hasAccessToChat) {
-    // Not authenticated and trying first - show non-auth layout
     return (
       <>
-        {errorAlert && (
-          <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
-        )}
+        {errorAlertComponent}
         
-        {showAuthModal && (
+        {shouldShowAuthModal && (
           <AuthModal
             isAuthenticated={isAuthenticated}
             onClose={handleCloseModal}
@@ -207,12 +212,88 @@ const Home: React.FC = () => {
     );
   }
 
-  // User has access - show chat layout
+  // UPDATED: Different layouts for 'try first' vs authenticated users
+  if (isTryingFirst && !isAuthenticated) {
+    // First image layout - "Try first" experience (simplified UI)
+    return (
+      <>
+        {errorAlertComponent}
+        
+        <div className="flex flex-col h-screen bg-gray-900 text-white">
+          {/* Header */}
+          <header className="flex justify-between items-center p-4 border-b border-gray-700">
+            <div className="flex items-center">
+              <div className="mr-4">
+                <svg className="w-6 h-6" /* SVG for the chat icon */ />
+              </div>
+              <div className="text-xl font-light">
+                <img src="/logo.svg" alt="Akuru" className="h-8" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleAuthLogin}
+                className="px-4 py-2 rounded-md bg-gray-800 hover:bg-gray-700"
+              >
+                Login
+              </button>
+              <button 
+                onClick={handleAuthSignUp}
+                className="px-4 py-2 rounded-md bg-gray-800 hover:bg-gray-700"
+              >
+                Register
+              </button>
+            </div>
+          </header>
+          
+          {/* Main content */}
+          <div className="flex-1 flex flex-col justify-center items-center p-4">
+            <h1 className="text-2xl mb-2">Hello, {'{name}'}</h1>
+            <p className="text-xl mb-8 text-gray-400">{'{Dhivehi text}'}</p>
+            
+            {/* Chat input */}
+            <div className="w-full max-w-xl">
+              <form onSubmit={handleSubmit} className="relative">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="w-full p-4 pr-12 rounded-full bg-gray-800 border border-gray-700 focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isProcessing || !message.trim()}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full"
+                >
+                  <svg 
+                    className={`w-6 h-6 ${isProcessing ? 'text-gray-500' : 'text-blue-500'}`}
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" />
+                  </svg>
+                </button>
+              </form>
+              <p className="text-center text-sm text-gray-500 mt-2">
+                Akuru can make mistakes • {'{Dhivehi text}'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+  
+  // Second image layout - Authenticated user experience (full UI with sidebar)
   return (
     <>
-      {errorAlert && (
-        <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
-      )}
+      {errorAlertComponent}
       
       <ChatLayout
         conversations={conversations}
