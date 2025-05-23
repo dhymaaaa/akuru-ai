@@ -1,4 +1,4 @@
-// Simplified Home component - Two states: Authenticated or Guest
+// Updated Home component with guest support
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChatLayout from '../components/Layout/ChatLayout';
@@ -68,8 +68,10 @@ const Home: React.FC = () => {
     messagesEndRef,
     setMessage,
     fetchMessages,
+    fetchGuestMessages,
     sendMessage,
-    clearMessages
+    clearMessages,
+    initializeGuestSession
   } = useChatMessages(currentConversation, createConversation, handleError);
 
   // Consolidate errors from all sources
@@ -80,25 +82,34 @@ const Home: React.FC = () => {
     }
   }, [authError, conversationsError, messagesError, handleError]);
 
-  // Fetch conversations when authenticated
+  // Initialize based on authentication status
   useEffect(() => {
     if (isAuthenticated) {
+      // Fetch conversations for authenticated users
       fetchConversations().catch((err) => {
         handleError(`Failed to load conversations: ${err instanceof Error ? err.message : String(err)}`);
       });
+    } else {
+      // Initialize guest session and fetch any existing messages
+      initializeGuestSession().then(() => {
+        fetchGuestMessages();
+      }).catch((err) => {
+        console.error('Error initializing guest session:', err);
+      });
     }
-  }, [isAuthenticated, fetchConversations, handleError]);
+  }, [isAuthenticated, fetchConversations, fetchGuestMessages, initializeGuestSession, handleError]);
 
-  // Fetch messages when conversation is selected
+  // Fetch messages when conversation is selected (authenticated users only)
   useEffect(() => {
-    if (currentConversation) {
+    if (isAuthenticated && currentConversation) {
       fetchMessages(currentConversation).catch((err) => {
         handleError(`Failed to load messages: ${err instanceof Error ? err.message : String(err)}`);
       });
-    } else {
-      clearMessages();
+    } else if (isAuthenticated && !currentConversation) {
+      // Clear messages when no conversation is selected for authenticated users
+      clearMessages(true);
     }
-  }, [currentConversation, fetchMessages, clearMessages, handleError]);
+  }, [currentConversation, fetchMessages, clearMessages, isAuthenticated, handleError]);
 
   // Navigation handlers
   const handleNavigateToLogin = useCallback(() => {
@@ -113,7 +124,6 @@ const Home: React.FC = () => {
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      // Pass isAuthenticated to determine storage behavior
       sendMessage(message, isAuthenticated).catch((err) => {
         handleError(`Failed to send message: ${err instanceof Error ? err.message : String(err)}`);
       });
@@ -128,6 +138,16 @@ const Home: React.FC = () => {
     },
     [selectConversation]
   );
+
+  // New chat handler
+  const handleNewChatClick = useCallback(() => {
+    if (isAuthenticated) {
+      handleNewChat();
+    } else {
+      // For guests, clear the session
+      clearMessages(false);
+    }
+  }, [isAuthenticated, handleNewChat, clearMessages]);
 
   // Render the appropriate chat content
   const renderChatContent = () => {
@@ -199,7 +219,7 @@ const Home: React.FC = () => {
         <GuestChatLayout
           onLogin={handleNavigateToLogin}
           onSignUp={handleNavigateToSignUp}
-          onNewChat={clearMessages}
+          onNewChat={handleNewChatClick}
         >
           {/* Chat Content */}
           <div className="flex-1 overflow-y-auto">

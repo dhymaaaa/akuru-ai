@@ -1,7 +1,6 @@
 // hooks/useChatMessages.ts
-import { useState, useRef, useCallback, RefObject } from 'react';
+import { useState, useRef, useCallback, RefObject, useEffect } from 'react';
 import { Message } from '@/types';
-
 
 export const useChatMessages = (
   currentConversationId: number | null, 
@@ -14,7 +13,16 @@ export const useChatMessages = (
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch messages for a conversation
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  }, [messages]);
+
+  // Fetch messages for a conversation (authenticated users only)
   const fetchMessages = useCallback(async (conversationId: number) => {
     if (!conversationId) return;
     
@@ -67,36 +75,83 @@ export const useChatMessages = (
     }
   }, []);
 
+  // Fetch guest messages
+  const fetchGuestMessages = useCallback(async () => {
+    try {
+      const response = await fetch('/api/guest/messages', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        // If no session exists, just start with empty messages
+        if (response.status === 404) {
+          setMessages([]);
+          return;
+        }
+        throw new Error('Failed to fetch guest messages');
+      }
+
+      const guestMessages = await response.json();
+      setMessages(guestMessages || []);
+    } catch (err) {
+      console.error('Error fetching guest messages:', err);
+      // For guests, we don't show errors for missing sessions
+      setMessages([]);
+    }
+  }, []);
+
   // Send a message and get AI response
-  const sendMessage = useCallback(async (content: string, isTryingFirst: boolean = false) => {
+  const sendMessage = useCallback(async (content: string, isAuthenticated: boolean = false) => {
     if (!content.trim()) return;
 
     try {
       setIsProcessing(true);
       setError(null);
 
-      // If in try-first mode, handle guest messages locally
-      if (isTryingFirst) {
-        // Add user message to UI
-        const userMessage: Message = { role: 'user', content };
-        setMessages(prev => [...prev, userMessage]);
+      if (!isAuthenticated) {
+        // GUEST USER FLOW
+        console.log('Sending guest message:', content);
+        
+        const response = await fetch('/api/guest/messages', {
+          method: 'POST',
+          credentials: 'include', // Important for sessions!
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content,
+            role: 'user'
+          })
+        });
 
-        // Simulate AI response after short delay
+        if (!response.ok) {
+          throw new Error('Failed to send guest message');
+        }
+
+        const data = await response.json();
+        console.log('Guest message response:', data);
+
+        // Add both user and AI messages to the UI
+        const newMessages: Message[] = [];
+        if (data.user_message) {
+          newMessages.push(data.user_message);
+        }
+        if (data.ai_response) {
+          newMessages.push(data.ai_response);
+        }
+
+        setMessages(prev => [...prev, ...newMessages]);
+        setMessage(''); // Clear input
+        
+        // Scroll to bottom after DOM updates
         setTimeout(() => {
-          const aiMessage: Message = {
-            role: 'akuru',
-            content: "This is a demo version. Please sign up or log in to chat with Akuru AI's full capabilities."
-          };
-          setMessages(prev => [...prev, aiMessage]);
           scrollToBottom();
-          setIsProcessing(false);
-        }, 1000);
-
-        // Clear input field
-        setMessage('');
+        }, 100);
         return;
       }
 
+      // AUTHENTICATED USER FLOW
       // If no conversation is selected, create a new one
       let conversationId = currentConversationId;
       if (!conversationId) {
@@ -180,13 +235,44 @@ export const useChatMessages = (
 
   // Scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
   }, []);
 
-  // Clear messages
-  const clearMessages = useCallback(() => {
+  // Clear messages (and guest session if not authenticated)
+  const clearMessages = useCallback(async (isAuthenticated: boolean = false) => {
     setMessages([]);
     setError(null);
+    
+    // If guest user, clear the session on the backend
+    if (!isAuthenticated) {
+      try {
+        await fetch('/api/guest/new-chat', {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (err) {
+        console.error('Error clearing guest session:', err);
+      }
+    }
+  }, []);
+
+  // Initialize guest session
+  const initializeGuestSession = useCallback(async () => {
+    try {
+      await fetch('/api/guest/new-session', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      console.log('Guest session initialized');
+    } catch (err) {
+      console.error('Error initializing guest session:', err);
+    }
   }, []);
 
   return {
@@ -197,9 +283,11 @@ export const useChatMessages = (
     messagesEndRef: messagesEndRef as RefObject<HTMLDivElement>,
     setMessage,
     fetchMessages,
+    fetchGuestMessages,
     sendMessage,
     clearMessages,
-    scrollToBottom
+    scrollToBottom,
+    initializeGuestSession
   };
 };
 

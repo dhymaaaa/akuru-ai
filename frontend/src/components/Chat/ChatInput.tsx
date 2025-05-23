@@ -13,7 +13,7 @@ interface ChatInputProps {
 const ChatInput: React.FC<ChatInputProps> = ({
   message,
   setMessage,
-  isAuthenticated,
+  // isAuthenticated,
   isProcessing,
   onSubmit
 }) => {
@@ -26,11 +26,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
           placeholder="Type a message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          disabled={!isAuthenticated || isProcessing}
+          disabled={isProcessing}
         />
         <button
           type="submit"
-          disabled={!isAuthenticated || isProcessing || !message.trim()}
+          disabled={isProcessing || !message.trim()}
           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#E9D8B5] hover:text-white transition-colors disabled:opacity-50"
         >
           {isProcessing ? (

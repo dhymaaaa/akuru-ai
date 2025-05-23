@@ -1,7 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
+from flask_session import Session
 import bcrypt
 import jwt
+import uuid
 import datetime
 import os
 from dotenv import load_dotenv
@@ -22,6 +24,16 @@ CORS(app, resources={r"/api/*": {
 
 # Secret key for JWT
 SECRET_KEY = os.getenv('SECRET_KEY')
+
+# ADD THE SESSION CONFIGURATION HERE:
+app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_FILE_DIR'] = './flask_session'
+
+# Initialize session
+Session(app)
 
 # Initialize database
 db.setup_database()
@@ -215,6 +227,78 @@ def add_conversation_message(conversation_id):
     
     # For non-user messages, just return the message ID
     return jsonify({'id': message_id}), 201
+
+@app.route('/api/guest/new-session', methods=['POST'])
+def create_guest_session():
+    """Create a new guest session"""
+    session_id = str(uuid.uuid4())
+    session['guest_session_id'] = session_id
+    session['guest_messages'] = []
+    return jsonify({'session_id': session_id}), 201
+
+@app.route('/api/guest/messages', methods=['GET'])
+def get_guest_messages():
+    """Get messages for current guest session"""
+    messages = session.get('guest_messages', [])
+    return jsonify(messages), 200
+
+@app.route('/api/guest/messages', methods=['POST'])
+def add_guest_message():
+    """Add message to guest session"""
+    content = request.json.get('content')
+    role = request.json.get('role', 'user')
+    
+    if not content:
+        return jsonify({'error': 'Message content is required'}), 400
+    
+    # Initialize session if it doesn't exist
+    if 'guest_messages' not in session:
+        session['guest_messages'] = []
+    
+    # Add user message
+    user_message = {
+        'id': len(session['guest_messages']) + 1,
+        'role': role,
+        'content': content,
+        'created_at': datetime.datetime.utcnow().isoformat()
+    }
+    session['guest_messages'].append(user_message)
+    
+    # Generate AI response for user messages
+    if role == 'user':
+        try:
+            # Convert session messages to format expected by Gemini
+            messages_for_ai = [{'role': msg['role'], 'content': msg['content']} 
+                             for msg in session['guest_messages']]
+            
+            ai_response = gemini_integration.get_gemini_response(messages_for_ai)
+            
+            ai_message = {
+                'id': len(session['guest_messages']) + 1,
+                'role': 'akuru',
+                'content': ai_response,
+                'created_at': datetime.datetime.utcnow().isoformat()
+            }
+            session['guest_messages'].append(ai_message)
+            
+            return jsonify({
+                'user_message': user_message,
+                'ai_response': ai_message
+            }), 201
+            
+        except Exception as e:
+            return jsonify({
+                'user_message': user_message,
+                'error': f"Failed to generate AI response: {str(e)}"
+            }), 201
+    
+    return jsonify({'message': user_message}), 201
+
+@app.route('/api/guest/new-chat', methods=['POST'])
+def clear_guest_session():
+    """Clear guest session messages (new chat)"""
+    session['guest_messages'] = []
+    return jsonify({'message': 'Session cleared'}), 200
 
 # Test endpoint to verify CORS is working
 @app.route('/api/test', methods=['GET'])

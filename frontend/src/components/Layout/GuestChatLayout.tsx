@@ -29,7 +29,7 @@ const GuestChatLayout: React.FC<GuestChatLayoutProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto">
-                    <div className="h-full p-6 flex flex-col items-center justify-center">
+                    <div className="h-full flex-1 flex flex-col">
                         {children}
                     </div>
                 </div>
