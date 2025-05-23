@@ -38,6 +38,18 @@ Session(app)
 # Initialize database
 db.setup_database()
 
+def generate_conversation_title(content):
+    """Generate a conversation title from the first message"""
+    # Remove extra whitespace and limit length
+    content = content.strip()
+    
+    # If message is short enough, use it as title
+    if len(content) <= 50:
+        return content
+    
+    # For longer messages, take first 47 characters and add ellipsis
+    return content[:47] + "..."
+
 @app.errorhandler(401)
 def unauthorized(error):
     return jsonify({'error': 'Unauthorized'}), 401
@@ -197,9 +209,22 @@ def add_conversation_message(conversation_id):
     # Add the user message to the database
     message_id = db.add_message(conversation_id, role, content)
     
-    # Only generate an AI response if this is a user message
+    # Check if this is the first user message and update title if needed
     if role == 'user':
         try:
+            # Get all messages to count user messages
+            messages = db.get_messages(conversation_id)
+            user_messages = [msg for msg in messages if msg['role'] == 'user']
+            
+            # Check if this is the first user message and update title
+            updated_title = None
+            if len(user_messages) == 1:
+                new_title = generate_conversation_title(content)
+                success = db.update_conversation_title(conversation_id, new_title)
+                if success:
+                    updated_title = new_title
+                    print(f"Updated conversation {conversation_id} title to: {new_title}")
+            
             # Get all messages in this conversation for context
             messages = gemini_integration.process_conversation_messages(conversation_id, db)
             
@@ -209,13 +234,20 @@ def add_conversation_message(conversation_id):
             # Save the AI response to the database
             ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
             
-            return jsonify({
+            response_data = {
                 'id': message_id,
                 'ai_response': {
                     'id': ai_message_id,
                     'content': ai_response
                 }
-            }), 201
+            }
+            
+            # Include updated title if it was changed
+            if updated_title:
+                response_data['updated_title'] = updated_title
+                response_data['conversation_id'] = conversation_id
+            
+            return jsonify(response_data), 201
             
         except Exception as e:
             app.logger.error(f"Error generating AI response: {str(e)}")
@@ -227,6 +259,27 @@ def add_conversation_message(conversation_id):
     
     # For non-user messages, just return the message ID
     return jsonify({'id': message_id}), 201
+
+# Optional: Add endpoint to manually update conversation titles
+@app.route('/api/conversations/<int:conversation_id>/title', methods=['PUT'])
+@token_required
+def update_conversation_title_endpoint(conversation_id):
+    data = request.get_json()
+    new_title = data.get('title')
+    
+    if not new_title:
+        return jsonify({'error': 'Title is required'}), 400
+    
+    # Limit title length
+    if len(new_title) > 100:
+        new_title = new_title[:97] + "..."
+    
+    success = db.update_conversation_title(conversation_id, new_title)
+    
+    if success:
+        return jsonify({'message': 'Title updated successfully', 'title': new_title}), 200
+    else:
+        return jsonify({'error': 'Failed to update title'}), 500
 
 @app.route('/api/guest/new-session', methods=['POST'])
 def create_guest_session():

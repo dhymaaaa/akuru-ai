@@ -5,7 +5,8 @@ import { Message } from '@/types';
 export const useChatMessages = (
   currentConversationId: number | null, 
   createConversation: () => Promise<number | null>,
-  onConversationError?: (error: string) => void
+  onConversationError?: (error: string) => void,
+  onTitleUpdate?: (conversationId: number, newTitle: string) => void
 ) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -215,6 +216,13 @@ export const useChatMessages = (
           content: jsonData.ai_response.content
         };
         setMessages(prev => [...prev, aiMessage]);
+        
+        // Handle title update if returned from backend
+        if (jsonData.updated_title && jsonData.conversation_id) {
+          console.log(`Received title update: ${jsonData.updated_title} for conversation ${jsonData.conversation_id}`);
+          onTitleUpdate?.(jsonData.conversation_id, jsonData.updated_title);
+        }
+        
         scrollToBottom();
       }
     } catch (err) {
@@ -231,7 +239,7 @@ export const useChatMessages = (
     } finally {
       setIsProcessing(false);
     }
-  }, [currentConversationId, createConversation, onConversationError]);
+  }, [currentConversationId, createConversation, onConversationError, onTitleUpdate]);
 
   // Scroll to bottom of messages
   const scrollToBottom = useCallback(() => {

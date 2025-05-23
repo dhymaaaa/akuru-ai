@@ -157,6 +157,18 @@ export const useConversations = () => {
     }
   }, []);
 
+  // Update conversation title in state
+  const updateConversationTitleInState = useCallback((conversationId: number, newTitle: string) => {
+    console.log(`Updating conversation ${conversationId} title to: ${newTitle}`);
+    setConversations(prev => 
+      prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, title: newTitle }
+          : conv
+      )
+    );
+  }, []);
+
   // Handle conversation selection
   const selectConversation = useCallback((conversationId: number) => {
     setCurrentConversation(conversationId);
@@ -169,12 +181,14 @@ export const useConversations = () => {
 
   // Format conversation title for display
   const formatConversationTitle = useCallback((conversation: Conversation) => {
-    if (conversation.title && conversation.title !== 'New Conversation') {
+    if (conversation.title && 
+        conversation.title !== 'New Conversation' && 
+        conversation.title !== 'New Conversation (Mock)') {
       return conversation.title;
     }
 
-    // If no meaningful title, use the first message or default
-    return `New conversation (${conversation.message_count} messages)`;
+    // If no meaningful title, use message count
+    return `Chat (${conversation.message_count} messages)`;
   }, []);
 
   return {
@@ -186,7 +200,8 @@ export const useConversations = () => {
     createConversation,
     selectConversation,
     handleNewChat,
-    formatConversationTitle
+    formatConversationTitle,
+    updateConversationTitleInState  // Export the new function
   };
 };
 

@@ -1,4 +1,4 @@
-// Updated Home component with guest support
+// Updated Home component with auto title updates
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChatLayout from '../components/Layout/ChatLayout';
@@ -56,7 +56,8 @@ const Home: React.FC = () => {
     createConversation,
     selectConversation,
     handleNewChat,
-    formatConversationTitle
+    formatConversationTitle,
+    updateConversationTitleInState  // Get the title update function
   } = useConversations();
 
   // Chat messages state
@@ -72,7 +73,12 @@ const Home: React.FC = () => {
     sendMessage,
     clearMessages,
     initializeGuestSession
-  } = useChatMessages(currentConversation, createConversation, handleError);
+  } = useChatMessages(
+    currentConversation, 
+    createConversation, 
+    handleError,
+    updateConversationTitleInState  // Pass the title update function
+  );
 
   // Consolidate errors from all sources
   useEffect(() => {
@@ -105,11 +111,12 @@ const Home: React.FC = () => {
       fetchMessages(currentConversation).catch((err) => {
         handleError(`Failed to load messages: ${err instanceof Error ? err.message : String(err)}`);
       });
-    } else if (isAuthenticated && !currentConversation) {
-      // Clear messages when no conversation is selected for authenticated users
+    } else if (isAuthenticated && !currentConversation && messages.length > 0) {
+      // Only clear messages if we actually have messages AND no conversation
+      console.log('Clearing messages due to no conversation selected');
       clearMessages(true);
     }
-  }, [currentConversation, fetchMessages, clearMessages, isAuthenticated, handleError]);
+  }, [currentConversation, fetchMessages, clearMessages, isAuthenticated, messages.length, handleError]);
 
   // Navigation handlers
   const handleNavigateToLogin = useCallback(() => {
