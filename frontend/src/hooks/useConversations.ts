@@ -2,7 +2,6 @@
 import { useState, useCallback } from 'react';
 import { Conversation } from '@/types';
 
-
 export const useConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<number | null>(null);
@@ -39,7 +38,6 @@ export const useConversations = () => {
       try {
         jsonData = responseBody ? JSON.parse(responseBody) : null;
       } catch {
-        // Removed the unused variable entirely
         console.error('Error parsing response:', responseBody);
       }
       
@@ -50,7 +48,6 @@ export const useConversations = () => {
 
       setConversations(jsonData || []);
     } catch (err) {
-      // Changed variable name from 'error' to 'err'
       console.error('Error fetching conversations:', err);
       setError(`Error fetching conversations: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -111,7 +108,6 @@ export const useConversations = () => {
         jsonData = responseBody ? JSON.parse(responseBody) : null;
         console.log('Parsed response:', jsonData);
       } catch {
-        // Removed the unused variable entirely
         console.error('Error parsing response:', responseBody);
       }
       
@@ -140,17 +136,21 @@ export const useConversations = () => {
         throw new Error('Invalid response format: missing conversation ID');
       }
 
-      // Add the new conversation to the list and set it as current
-      setConversations(prev => [jsonData, ...prev]);
+      // CRITICAL FIX: Set current conversation FIRST, then update conversations list
+      // This prevents the race condition in Home component
       setCurrentConversation(jsonData.id);
+      
+      // Small delay to ensure state update is processed
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Then add to conversations list
+      setConversations(prev => [jsonData, ...prev]);
 
+      console.log('✅ Conversation created and set as current:', jsonData.id);
       return jsonData.id;
     } catch (err) {
-      // Changed variable name from 'error' to 'err'
       console.error('Error creating conversation:', err);
       setError(`Error creating conversation: ${err instanceof Error ? err.message : String(err)}`);
-      
-      // Return a specific value to indicate failure
       return null;
     } finally {
       setIsLoading(false);
