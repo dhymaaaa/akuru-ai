@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, MouseEvent } from 'react';
 import Typewriter from "@/fancy/components/text/typewriter"
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -10,6 +10,16 @@ export const SignUp = () => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+
+    const handleAuthTryFirst = (e: MouseEvent<HTMLButtonElement>) => {
+            e.preventDefault(); // Prevent default button behavior
+            
+            // Set the flag in localStorage to indicate guest/try first mode
+            localStorage.setItem('guestMode', 'true');
+            
+            // Navigate to home page
+            navigate('/');
+        };
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -167,9 +177,12 @@ export const SignUp = () => {
                             </button>
                         </div>
                         <div className="flex justify-between text-sm text-[#E9D8B5] pt-2 w-3/4 mt-2">
-                            <Link to="/try" className="hover:underline">
+                            <button 
+                                onClick={handleAuthTryFirst}
+                                className="hover:underline text-left text-[#E9D8B5] text-sm bg-transparent border-0 p-0 cursor-pointer"
+                            >
                                 Try it first
-                            </Link>
+                            </button>
                             <Link to="/login" className="hover:underline">
                                 Login
                             </Link>
