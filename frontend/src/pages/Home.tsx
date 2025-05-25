@@ -1,4 +1,3 @@
-// Updated Home component with auto title updates
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChatLayout from '../components/Layout/ChatLayout';
@@ -184,7 +183,6 @@ const Home: React.FC = () => {
     <ErrorAlert message={errorAlert} onClose={() => setErrorAlert(null)} />
   );
 
-  // SIMPLIFIED: Only two states - Authenticated or Guest
   if (isAuthenticated) {
     // Authenticated user - Full experience with sidebar and DB storage
     return (
@@ -210,7 +208,6 @@ const Home: React.FC = () => {
           <ChatInput
             message={message}
             setMessage={setMessage}
-            isAuthenticated={isAuthenticated}
             isProcessing={isProcessing}
             onSubmit={handleSubmit}
           />
@@ -239,7 +236,6 @@ const Home: React.FC = () => {
           <ChatInput
             message={message}
             setMessage={setMessage}
-            isAuthenticated={isAuthenticated}
             isProcessing={isProcessing}
             onSubmit={handleSubmit}
           />

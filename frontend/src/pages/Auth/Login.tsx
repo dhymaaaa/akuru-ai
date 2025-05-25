@@ -1,26 +1,13 @@
-// Updated Login component with proper TypeScript types
 import { useState, FormEvent, MouseEvent } from 'react';
-// import { useState, useEffect, FormEvent } from 'react';
 import Typewriter from "@/fancy/components/text/typewriter"
 import { Link, useNavigate } from 'react-router-dom';
-// import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 export const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    // const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-    // const location = useLocation();
-
-    // Check for success message from signup page
-    // useEffect(() => {
-    //     if (location.state?.message) {
-    //         setMessage(location.state.message);
-    //         window.history.replaceState({}, document.title);
-    //     }
-    // }, [location]);
 
     // Updated with proper type for the event parameter
     const handleAuthTryFirst = (e: MouseEvent<HTMLButtonElement>) => {

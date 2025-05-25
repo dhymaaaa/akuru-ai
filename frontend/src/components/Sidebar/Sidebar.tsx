@@ -2,20 +2,17 @@ import React, { useState } from 'react';
 import NewChatButton from './NewChatButton';
 import ConversationList from './ConversationList';
 import UserProfile from './UserProfile';
-import { Conversation } from '@/types';
+import { Conversation, UserData } from '@/types';
 
 interface SidebarProps {
   conversations: Conversation[];
   currentConversation: number | null;
-  userData: {
-    name: string;
-    email: string;
-  };
+  userData: UserData;
+  loginPageUrl?: string; 
   onNewChat: () => void;
   onSelectConversation: (id: number) => void;
   formatConversationTitle: (conversation: Conversation) => string;
   onLogout?: () => Promise<void> | void; 
-  loginPageUrl?: string; 
 }
 
 const Sidebar: React.FC<SidebarProps> = ({

@@ -1,5 +1,4 @@
-// lib/api.ts - Unified API service with token refresh logic
-import { User, UserData, AuthResponse, Message, Conversation } from '../types';
+import {  UserData, AuthResponse, Message, Conversation } from '@/types';
 
 // Base API URL - can be moved to .env file
 const API_URL = 'http://localhost:5000/api';
@@ -228,7 +227,7 @@ const api = {
     return data;
   },
   
-  getProfile: async (): Promise<User> => {
+  getProfile: async (): Promise<UserData> => {
     const response = await authFetch(`${API_URL}/profile`);
     
     if (!response.ok) {

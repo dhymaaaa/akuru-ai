@@ -96,12 +96,13 @@ def login():
         token = jwt.encode({
             'user_id': user['id'],
             'email': user['email'],
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         }, SECRET_KEY, algorithm='HS256')
         
         return jsonify({
             'message': 'Login successful',
-            'token': token
+            'token': token,
+            'refreshToken': 'refresh_token_str'
         }), 200
     else:
         return jsonify({'error': 'Invalid credentials'}), 401
@@ -129,6 +130,32 @@ def token_required(f):
     # Preserve the original function name to prevent endpoint conflicts
     decorated.__name__ = f.__name__
     return decorated
+
+@app.route('/api/refresh', methods=['POST'])
+def refresh_token():
+    data = request.get_json()
+    refresh_token = data.get('refreshToken')
+    
+    if not refresh_token:
+        return jsonify({'error': 'Refresh token required'}), 401
+    
+    try:
+        decoded = jwt.decode(refresh_token, SECRET_KEY, algorithms=['HS256'])
+        
+        # Validate it's actually a refresh token
+        if decoded.get('type') != 'refresh':
+            return jsonify({'error': 'Invalid token type'}), 401
+            
+        # Generate new access token
+        new_token = jwt.encode({
+            'user_id': decoded['user_id'],
+            'email': decoded['email'],
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }, SECRET_KEY, algorithm='HS256')
+        
+        return jsonify({'token': new_token}), 200
+    except:
+        return jsonify({'error': 'Invalid refresh token'}), 401
 
 @app.route('/api/user', methods=['GET'])
 @token_required

@@ -2,7 +2,6 @@ import React from 'react';
 
 interface ChatHeaderProps {
   isLoggedIn: boolean;
-  conversationTitle?: string;
   onThemeToggle?: () => void;
   onLogin?: () => void;
   onRegister?: () => void;
@@ -11,7 +10,6 @@ interface ChatHeaderProps {
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
   isLoggedIn,
-  conversationTitle,
   onThemeToggle,
   onLogin,
   onRegister,
@@ -66,13 +64,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                 />
               </g>
             </svg>
-
-            {/* Display conversation title if provided and logged in */}
-            {conversationTitle && (
-              <div className="ml-4 text-lg font-medium text-[#E9D8B5]">
-                {conversationTitle}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center">

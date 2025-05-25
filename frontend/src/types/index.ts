@@ -20,3 +20,10 @@ export interface Conversation {
   updated_at: string;
   message_count: number;
 }
+
+// Auth-related types
+export interface AuthResponse {
+  message: string;
+  token: string;
+  refreshToken?: string;
+}

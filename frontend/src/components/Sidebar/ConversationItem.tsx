@@ -1,27 +1,20 @@
 import React from 'react';
-
-interface Conversation {
-  id: number;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  message_count: number;
-}
+import { Conversation } from '@/types';
 
 interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
+  isCollapsed: boolean;
   onSelect: (id: number) => void;
   formatTitle: (conversation: Conversation) => string;
-  isCollapsed: boolean;
 }
 
 const ConversationItem: React.FC<ConversationItemProps> = ({
   conversation,
   isActive,
+  isCollapsed,
   onSelect,
-  formatTitle,
-  isCollapsed
+  formatTitle
 }) => {
   return (
     <div

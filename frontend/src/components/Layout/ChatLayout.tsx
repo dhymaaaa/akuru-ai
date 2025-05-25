@@ -11,10 +11,10 @@ interface ChatLayoutProps {
     name: string;
     email: string;
   };
+  children: ReactNode;
   onNewChat: () => void;
   onSelectConversation: (id: number) => void;
   formatConversationTitle: (conversation: Conversation) => string;
-  children: ReactNode;
 }
 
 const ChatLayout: React.FC<ChatLayoutProps> = ({

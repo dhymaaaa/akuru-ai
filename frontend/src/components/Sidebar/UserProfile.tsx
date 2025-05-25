@@ -5,19 +5,19 @@ import { mdiAccountCircle, mdiLogout } from '@mdi/js';
 interface UserProfileProps {
   email: string;
   isCollapsed: boolean;
-  onLogout?: () => Promise<void> | void; // Updated to support async
+  loginPageUrl?: string;
+  onLogout?: () => Promise<void> | void; 
   onProfileToggle?: (isExpanded: boolean) => void;
   onExpandSidebar?: () => void;
-  loginPageUrl?: string; // New prop for the login page URL
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({
   email,
   isCollapsed,
+  loginPageUrl = '/login' ,
   onLogout = () => console.log('Logout clicked'),
   onProfileToggle = () => {},
   onExpandSidebar = () => {},
-  loginPageUrl = '/login' // Default login page path
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);

@@ -1,12 +1,11 @@
-// components/Layout/GuestChatLayout.tsx
 import React, { ReactNode } from 'react';
 import ChatHeader from '../Chat/ChatHeader';
 
 interface GuestChatLayoutProps {
+    children: ReactNode;
     onLogin: () => void;
     onSignUp: () => void;
     onNewChat: () => void;
-    children: ReactNode;
 }
 
 const GuestChatLayout: React.FC<GuestChatLayoutProps> = ({

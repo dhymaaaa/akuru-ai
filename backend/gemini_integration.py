@@ -21,7 +21,7 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 # System instruction for the Gemini model
 SYSTEM_INSTRUCTION = """
 You are a helpful assistant that answers in both Dhivehi and English. You provide concise, accurate, and helpful responses.
-You maintain context throughout the conversation and use previous information when appropriate, but do not start responses with phrases like "As mentioned previously" or explicitly reference past messages.
+You maintain context throughout the conversation.
 If you don't know the answer to something, you acknowledge that instead of making things up.
 
 IMPORTANT: Format your responses with English first, followed by two newlines, then the Dhivehi translation:
@@ -43,7 +43,7 @@ def initialize_chat_session():
         {"role": "user", "parts": ["Please act as a helpful assistant with the following instructions:"]},
         {"role": "model", "parts": ["I'll act as a helpful assistant based on your instructions."]},
         {"role": "user", "parts": [SYSTEM_INSTRUCTION]},
-        {"role": "model", "parts": ["I understand. I'll be a helpful assistant that provides concise, accurate responses while maintaining context throughout our conversation. I'll refer back to previous messages when appropriate, and I'll be honest when I don't know something instead of making up information."]}
+        {"role": "model", "parts": ["I understand. I'll be a helpful assistant that provides concise, accurate responses while maintaining context throughout our conversation but do not use words like that. I'll be honest when I don't know something instead of making up information."]}
     ])
 
 def get_gemini_response(messages):

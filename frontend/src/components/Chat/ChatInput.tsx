@@ -4,16 +4,14 @@ import { mdiLoading, mdiArrowRight } from '@mdi/js';
 
 interface ChatInputProps {
   message: string;
-  setMessage: (message: string) => void;
-  isAuthenticated: boolean;
   isProcessing: boolean;
+  setMessage: (message: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
   message,
   setMessage,
-  // isAuthenticated,
   isProcessing,
   onSubmit
 }) => {
