@@ -1,11 +1,5 @@
 import React, { RefObject } from 'react';
-
-interface Message {
-  id?: number;
-  role: 'user' | 'akuru';
-  content: string;
-  created_at?: string;
-}
+import { Message } from '@/types';
 
 interface ChatMessagesProps {
   messages: Message[];
