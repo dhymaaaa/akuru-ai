@@ -2,7 +2,7 @@ import React from 'react';
 
 interface ChatHeaderProps {
   isLoggedIn: boolean;
-  onThemeToggle?: () => void;
+  // onThemeToggle?: () => void;
   onLogin?: () => void;
   onRegister?: () => void;
   onNewChat?: () => void;
@@ -10,7 +10,7 @@ interface ChatHeaderProps {
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
   isLoggedIn,
-  onThemeToggle,
+  // onThemeToggle,
   onLogin,
   onRegister,
   onNewChat
@@ -66,19 +66,22 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             </svg>
           </div>
 
-          <div className="flex items-center">
-            {/* Theme toggle button - only for logged in users */}
+          {/* <div className="flex items-center">
             <button
               className="p-2"
               onClick={onThemeToggle}
-              aria-label="Toggle dark/light mode"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
-              <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
-                width="15pt" height="15pt" viewBox="0 0 512.000000 512.000000"
-                preserveAspectRatio="xMidYMid meet">
-                <g transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
-                  fill="#E9D8B5" stroke="none">
-                  <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
+                <svg fill="#E9D8B5" width="25pt" height="25pt" viewBox="-5.5 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                  <title>sun</title>
+                  <path d="M10.68 21.64c-3.12 0-5.64-2.52-5.64-5.64s2.52-5.64 5.64-5.64 5.64 2.52 5.64 5.64-2.52 5.64-5.64 5.64zM10.68 12.040c-2.2 0-3.96 1.76-3.96 3.96s1.76 3.96 3.96 3.96 3.96-1.76 3.96-3.96-1.76-3.96-3.96-3.96zM10.68 9.040c-0.48 0-0.84-0.36-0.84-0.84v-2.040c0-0.48 0.36-0.84 0.84-0.84s0.84 0.36 0.84 0.84v2.040c0 0.48-0.36 0.84-0.84 0.84zM16.2 11.32c-0.2 0-0.44-0.080-0.6-0.24-0.32-0.32-0.32-0.84 0-1.2l1.44-1.44c0.32-0.32 0.84-0.32 1.2 0 0.32 0.32 0.32 0.84 0 1.2l-1.44 1.44c-0.2 0.16-0.4 0.24-0.6 0.24zM18.48 16.84c-0.48 0-0.84-0.36-0.84-0.84s0.36-0.84 0.84-0.84h2.040c0.48 0 0.84 0.36 0.84 0.84s-0.36 0.84-0.84 0.84h-2.040zM17.64 23.8c-0.2 0-0.44-0.080-0.6-0.24l-1.44-1.48c-0.32-0.32-0.32-0.84 0-1.2 0.32-0.32 0.84-0.32 1.2 0l1.44 1.44c0.32 0.32 0.32 0.84 0 1.2-0.16 0.2-0.4 0.28-0.6 0.28zM10.68 26.68c-0.48 0-0.84-0.36-0.84-0.84v-2.040c0-0.48 0.36-0.84 0.84-0.84s0.84 0.36 0.84 0.84v2.040c0 0.48-0.36 0.84-0.84 0.84zM3.72 23.8c-0.2 0-0.44-0.080-0.6-0.24-0.32-0.32-0.32-0.84 0-1.2l1.44-1.44c0.32-0.32 0.84-0.32 1.2 0s0.32 0.84 0 1.2l-1.44 1.44c-0.16 0.16-0.4 0.24-0.6 0.24zM0.84 16.84c-0.48 0-0.84-0.36-0.84-0.84s0.36-0.84 0.84-0.84h2.040c0.48 0 0.84 0.36 0.84 0.84s-0.36 0.84-0.84 0.84h-2.040zM5.16 11.32c-0.2 0-0.44-0.080-0.6-0.24l-1.44-1.44c-0.32-0.32-0.32-0.84 0-1.2 0.32-0.32 0.84-0.32 1.2 0l1.44 1.44c0.32 0.32 0.32 0.84 0 1.2-0.16 0.16-0.36 0.24-0.6 0.24z"></path>
+                </svg>
+                <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+                  width="15pt" height="15pt" viewBox="0 0 512.000000 512.000000"
+                  preserveAspectRatio="xMidYMid meet">
+                  <g transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
+                    fill="#E9D8B5" stroke="none">
+                    <path d="M1810 5071 c-381 -125 -719 -327 -1006 -604 -232 -223 -388 -434
                     -526 -710 -501 -1007 -310 -2193 483 -2988 502 -504 1199 -781 1899 -756 548
                     20 1015 179 1455 496 472 339 815 837 975 1415 35 128 36 147 11 203 -26 57
                     -84 87 -156 81 -44 -4 -64 -13 -119 -54 -158 -116 -259 -179 -381 -239 -283
@@ -90,10 +93,10 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     -927 -1819 -927 -505 0 -948 147 -1354 448 -275 205 -510 490 -669 810 -159
                     321 -229 624 -229 987 1 315 45 554 154 830 163 413 462 784 833 1032 71 48
                     212 132 222 133 1 0 -18 -46 -41 -102z"/>
-                </g>
-              </svg>
+                  </g>
+                </svg>
             </button>
-          </div>
+          </div> */}
         </div>
       ) : (
         /* Guest header - from NonAuthChatLayout */
