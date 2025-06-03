@@ -150,7 +150,7 @@ def refresh_token():
         new_token = jwt.encode({
             'user_id': decoded['user_id'],
             'email': decoded['email'],
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         }, SECRET_KEY, algorithm='HS256')
         
         return jsonify({'token': new_token}), 200
@@ -340,7 +340,7 @@ def add_guest_message():
         'id': len(session['guest_messages']) + 1,
         'role': role,
         'content': content,
-        'created_at': datetime.datetime.utcnow().isoformat()
+        'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
     session['guest_messages'].append(user_message)
     
@@ -357,7 +357,7 @@ def add_guest_message():
                 'id': len(session['guest_messages']) + 1,
                 'role': 'akuru',
                 'content': ai_response,
-                'created_at': datetime.datetime.utcnow().isoformat()
+                'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
             session['guest_messages'].append(ai_message)
             
