@@ -249,3 +249,74 @@ def delete_message(message_id):
     finally:
         cursor.close()
         conn.close()
+
+
+def get_dialect_by_english_term(english_term):
+    """Get dialect information by exact English term match"""
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        query = "SELECT * FROM dialects WHERE LOWER(eng_term) = LOWER(%s)"
+        cursor.execute(query, (english_term,))
+        result = cursor.fetchone()
+        return result
+    except Exception as e:
+        print(f"Error fetching dialect by English term: {e}")
+        return None
+    finally:
+        cursor.close()
+        connection.close()
+
+def search_dialects(search_term):
+    """Search dialects with partial matching"""
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        # Search in all columns for partial matches
+        query = """
+        SELECT * FROM dialects 
+        WHERE LOWER(eng_term) LIKE LOWER(%s) 
+           OR LOWER(male_term) LIKE LOWER(%s)
+           OR LOWER(huvadhoo_term) LIKE LOWER(%s)
+           OR LOWER(addu_term) LIKE LOWER(%s)
+        ORDER BY 
+            CASE 
+                WHEN LOWER(eng_term) = LOWER(%s) THEN 1
+                WHEN LOWER(eng_term) LIKE LOWER(%s) THEN 2
+                ELSE 3
+            END
+        LIMIT 10
+        """
+        
+        search_pattern = f"%{search_term}%"
+        cursor.execute(query, (
+            search_pattern, search_pattern, search_pattern, search_pattern,
+            search_term, f"{search_term}%"
+        ))
+        results = cursor.fetchall()
+        return results
+    except Exception as e:
+        print(f"Error searching dialects: {e}")
+        return []
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_all_dialects():
+    """Get all dialect entries (for admin purposes)"""
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        query = "SELECT * FROM dialects ORDER BY eng_term"
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return results
+    except Exception as e:
+        print(f"Error fetching all dialects: {e}")
+        return []
+    finally:
+        cursor.close()
+        connection.close()

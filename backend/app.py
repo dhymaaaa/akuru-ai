@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import db  # Import our database module
 import gemini_integration  # Import our Gemini integration
+from dialect_middleware import DialectMiddleware
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +38,9 @@ Session(app)
 
 # Initialize database
 db.setup_database()
+
+# Initialize dialect middleware
+dialect_middleware = DialectMiddleware()
 
 def generate_conversation_title(content):
     """Generate a conversation title from the first message"""
@@ -224,6 +228,69 @@ def get_conversation_messages(conversation_id):
     messages = db.get_messages(conversation_id)
     return jsonify(messages), 200
 
+# @app.route('/api/conversations/<int:conversation_id>/messages', methods=['POST'])
+# @token_required
+# def add_conversation_message(conversation_id):
+#     content = request.json.get('content')
+#     role = request.json.get('role', 'user')
+    
+#     if not content:
+#         return jsonify({'error': 'Message content is required'}), 400
+    
+#     # Add the user message to the database
+#     message_id = db.add_message(conversation_id, role, content)
+    
+#     # Check if this is the first user message and update title if needed
+#     if role == 'user':
+#         try:
+#             # Get all messages to count user messages
+#             messages = db.get_messages(conversation_id)
+#             user_messages = [msg for msg in messages if msg['role'] == 'user']
+            
+#             # Check if this is the first user message and update title
+#             updated_title = None
+#             if len(user_messages) == 1:
+#                 new_title = generate_conversation_title(content)
+#                 success = db.update_conversation_title(conversation_id, new_title)
+#                 if success:
+#                     updated_title = new_title
+#                     print(f"Updated conversation {conversation_id} title to: {new_title}")
+            
+#             # Get all messages in this conversation for context
+#             messages = gemini_integration.process_conversation_messages(conversation_id, db)
+            
+#             # Get response from Gemini
+#             ai_response = gemini_integration.get_gemini_response(messages)
+            
+#             # Save the AI response to the database
+#             ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
+            
+#             response_data = {
+#                 'id': message_id,
+#                 'ai_response': {
+#                     'id': ai_message_id,
+#                     'content': ai_response
+#                 }
+#             }
+            
+#             # Include updated title if it was changed
+#             if updated_title:
+#                 response_data['updated_title'] = updated_title
+#                 response_data['conversation_id'] = conversation_id
+            
+#             return jsonify(response_data), 201
+            
+#         except Exception as e:
+#             app.logger.error(f"Error generating AI response: {str(e)}")
+#             # Still return success for the user message, but with error info
+#             return jsonify({
+#                 'id': message_id,
+#                 'error': f"Failed to generate AI response: {str(e)}"
+#             }), 201
+    
+#     # For non-user messages, just return the message ID
+#     return jsonify({'id': message_id}), 201
+
 @app.route('/api/conversations/<int:conversation_id>/messages', methods=['POST'])
 @token_required
 def add_conversation_message(conversation_id):
@@ -252,22 +319,39 @@ def add_conversation_message(conversation_id):
                     updated_title = new_title
                     print(f"Updated conversation {conversation_id} title to: {new_title}")
             
-            # Get all messages in this conversation for context
-            messages = gemini_integration.process_conversation_messages(conversation_id, db)
+            # *** NEW: Check if this is a dialect-related query ***
+            dialect_response = dialect_middleware.process_dialect_request(content, is_authenticated=True)
             
-            # Get response from Gemini
-            ai_response = gemini_integration.get_gemini_response(messages)
-            
-            # Save the AI response to the database
-            ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
-            
-            response_data = {
-                'id': message_id,
-                'ai_response': {
-                    'id': ai_message_id,
-                    'content': ai_response
+            if dialect_response:
+                # Save the dialect response as AI message
+                ai_message_id = db.add_message(conversation_id, 'akuru', dialect_response)
+                
+                response_data = {
+                    'id': message_id,
+                    'ai_response': {
+                        'id': ai_message_id,
+                        'content': dialect_response
+                    },
+                    'source': 'dialect_database'  # Indicate this came from database
                 }
-            }
+            else:
+                # Get all messages in this conversation for context
+                messages = gemini_integration.process_conversation_messages(conversation_id, db)
+                
+                # Get response from Gemini
+                ai_response = gemini_integration.get_gemini_response(messages)
+                
+                # Save the AI response to the database
+                ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
+                
+                response_data = {
+                    'id': message_id,
+                    'ai_response': {
+                        'id': ai_message_id,
+                        'content': ai_response
+                    },
+                    'source': 'gemini_ai'  # Indicate this came from Gemini
+                }
             
             # Include updated title if it was changed
             if updated_title:
@@ -277,11 +361,11 @@ def add_conversation_message(conversation_id):
             return jsonify(response_data), 201
             
         except Exception as e:
-            app.logger.error(f"Error generating AI response: {str(e)}")
+            app.logger.error(f"Error generating response: {str(e)}")
             # Still return success for the user message, but with error info
             return jsonify({
                 'id': message_id,
-                'error': f"Failed to generate AI response: {str(e)}"
+                'error': f"Failed to generate response: {str(e)}"
             }), 201
     
     # For non-user messages, just return the message ID
