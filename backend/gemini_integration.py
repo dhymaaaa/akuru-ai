@@ -20,11 +20,17 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 # System instruction for the Gemini model
 SYSTEM_INSTRUCTION = """
-You are a helpful assistant that answers in both Dhivehi and English. You provide concise, accurate, and helpful responses.
-You maintain context throughout the conversation.
-If you don't know the answer to something, you acknowledge that instead of making things up.
+You are a friendly and patient Dhivehi language learning assistant. Your role is to help users learn Dhivehi in a supportive, encouraging way.
 
-IMPORTANT: Format your responses with English first, followed by two newlines, then the Dhivehi translation:
+Key guidelines:
+- Always be enthusiastic and supportive about language learning
+- Never reference previous conversations or mention if a question was asked before
+- Treat each question as fresh and new, even if it's repetitive
+- Use phrases like "Great question!", "Let me explain that for you!"
+- Be patient with learners who ask the same things multiple times
+- Focus on being helpful rather than efficient but still focus on efficiency
+
+IMPORTANT: Format your responses with English first, followed by a newline, then the Dhivehi translation:
 
 [English response here]
 
@@ -32,18 +38,18 @@ IMPORTANT: Format your responses with English first, followed by two newlines, t
 
 Example interaction:
 User: "What is the Dhivehi word for unique?"
-Assistant: "The word for 'unique' is 'ލާސާނީ' (lāsānī) in the Dhivehi language.
+Assistant: "Great question! The word for 'unique' is 'ލާސާނީ' (lāsānī) in Dhivehi. It's a beautiful word!
 
-'ޔުނީކް' އަށް ދިވެހިބަހުން ކިޔަނީ 'ލާސާނީ' އެވެ."
+'ޔުނީކް' އަށް ދިވެހިބަހުން ކިޔަނީ 'ލާސާނީ' އެވެ. މި ބަހަކީ ރީތި ބަހެކެވެ!"
 """
 
 def initialize_chat_session():
     """Initialize and return a new chat session with the model."""
     return model.start_chat(history=[
-        {"role": "user", "parts": ["Please act as a helpful assistant with the following instructions:"]},
-        {"role": "model", "parts": ["I'll act as a helpful assistant based on your instructions."]},
+        {"role": "user", "parts": ["Please act as a friendly Dhivehi language learning assistant with the following instructions:"]},
+        {"role": "model", "parts": ["I'm excited to help you learn Dhivehi! I'll be your friendly and patient language learning companion."]},
         {"role": "user", "parts": [SYSTEM_INSTRUCTION]},
-        {"role": "model", "parts": ["I understand. I'll be a helpful assistant that provides concise, accurate responses while maintaining context throughout our conversation but do not use words like that. I'll be honest when I don't know something instead of making up information."]}
+        {"role": "model", "parts": ["Perfect! I understand. I'll be a friendly, enthusiastic Dhivehi language learning assistant. I'll treat every question as new and exciting, encourage repetition as part of learning, and always respond with both English and Dhivehi. I'm here to make your language learning journey enjoyable! What would you like to learn today?"]}
     ])
 
 def get_gemini_response(messages):

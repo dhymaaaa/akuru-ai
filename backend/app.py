@@ -301,7 +301,11 @@ def add_conversation_message(conversation_id):
         return jsonify({'error': 'Message content is required'}), 400
     
     # Add the user message to the database
-    message_id = db.add_message(conversation_id, role, content)
+    try:
+        message_id = db.add_message(conversation_id, role, content)
+    except Exception as e:
+        print(f"ERROR adding user message: {str(e)}")
+        return jsonify({'error': 'Failed to save message'}), 500
     
     # Check if this is the first user message and update title if needed
     if role == 'user':
@@ -317,41 +321,55 @@ def add_conversation_message(conversation_id):
                 success = db.update_conversation_title(conversation_id, new_title)
                 if success:
                     updated_title = new_title
-                    print(f"Updated conversation {conversation_id} title to: {new_title}")
             
-            # *** NEW: Check if this is a dialect-related query ***
-            dialect_response = dialect_middleware.process_dialect_request(content, is_authenticated=True)
+            # Check for dialect request
+            try:
+                dialect_response = dialect_middleware.process_dialect_request(content, is_authenticated=True)
+            except Exception as e:
+                print(f"ERROR in dialect processing: {str(e)}")
+                dialect_response = None
             
             if dialect_response:
                 # Save the dialect response as AI message
-                ai_message_id = db.add_message(conversation_id, 'akuru', dialect_response)
-                
-                response_data = {
-                    'id': message_id,
-                    'ai_response': {
-                        'id': ai_message_id,
-                        'content': dialect_response
-                    },
-                    'source': 'dialect_database'  # Indicate this came from database
-                }
+                try:
+                    ai_message_id = db.add_message(conversation_id, 'akuru', dialect_response)
+                    response_data = {
+                        'id': message_id,
+                        'ai_response': {
+                            'id': ai_message_id,
+                            'content': dialect_response
+                        },
+                        'source': 'dialect_database'
+                    }
+                except Exception as e:
+                    print(f"ERROR saving dialect response: {str(e)}")
+                    raise e
             else:
-                # Get all messages in this conversation for context
-                messages = gemini_integration.process_conversation_messages(conversation_id, db)
-                
-                # Get response from Gemini
-                ai_response = gemini_integration.get_gemini_response(messages)
-                
-                # Save the AI response to the database
-                ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
-                
-                response_data = {
-                    'id': message_id,
-                    'ai_response': {
-                        'id': ai_message_id,
-                        'content': ai_response
-                    },
-                    'source': 'gemini_ai'  # Indicate this came from Gemini
-                }
+                # Use Gemini for response
+                try:
+                    # Get all messages in this conversation for context
+                    messages = gemini_integration.process_conversation_messages(conversation_id, db)
+                    
+                    # Get response from Gemini
+                    ai_response = gemini_integration.get_gemini_response(messages)
+                    
+                    if not ai_response:
+                        raise Exception("Gemini returned empty response")
+                    
+                    # Save the AI response to the database
+                    ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
+                    
+                    response_data = {
+                        'id': message_id,
+                        'ai_response': {
+                            'id': ai_message_id,
+                            'content': ai_response
+                        },
+                        'source': 'gemini_ai'
+                    }
+                except Exception as e:
+                    print(f"ERROR in Gemini processing: {str(e)}")
+                    raise e
             
             # Include updated title if it was changed
             if updated_title:
@@ -361,15 +379,15 @@ def add_conversation_message(conversation_id):
             return jsonify(response_data), 201
             
         except Exception as e:
-            app.logger.error(f"Error generating response: {str(e)}")
+            print(f"Error generating response: {str(e)}")
+            import traceback
+            print(f"Full traceback: {traceback.format_exc()}")
+            
             # Still return success for the user message, but with error info
             return jsonify({
                 'id': message_id,
                 'error': f"Failed to generate response: {str(e)}"
             }), 201
-    
-    # For non-user messages, just return the message ID
-    return jsonify({'id': message_id}), 201
 
 # Optional: Add endpoint to manually update conversation titles
 @app.route('/api/conversations/<int:conversation_id>/title', methods=['PUT'])
