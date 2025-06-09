@@ -406,19 +406,71 @@ def get_guest_messages():
     messages = session.get('guest_messages', [])
     return jsonify(messages), 200
 
+# @app.route('/api/guest/messages', methods=['POST'])
+# def add_guest_message():
+#     """Add message to guest session"""
+#     content = request.json.get('content')
+#     role = request.json.get('role', 'user')
+    
+#     if not content:
+#         return jsonify({'error': 'Message content is required'}), 400
+    
+#     # Initialize session if it doesn't exist
+#     if 'guest_messages' not in session:
+#         session['guest_messages'] = []
+    
+#     # Add user message
+#     user_message = {
+#         'id': len(session['guest_messages']) + 1,
+#         'role': role,
+#         'content': content,
+#         'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+#     }
+#     session['guest_messages'].append(user_message)
+    
+#     # Generate AI response for user messages
+#     if role == 'user':
+#         try:
+#             # Convert session messages to format expected by Gemini
+#             messages_for_ai = [{'role': msg['role'], 'content': msg['content']} 
+#                              for msg in session['guest_messages']]
+            
+#             ai_response = gemini_integration.get_gemini_response(messages_for_ai)
+            
+#             ai_message = {
+#                 'id': len(session['guest_messages']) + 1,
+#                 'role': 'akuru',
+#                 'content': ai_response,
+#                 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+#             }
+#             session['guest_messages'].append(ai_message)
+            
+#             return jsonify({
+#                 'user_message': user_message,
+#                 'ai_response': ai_message
+#             }), 201
+            
+#         except Exception as e:
+#             return jsonify({
+#                 'user_message': user_message,
+#                 'error': f"Failed to generate AI response: {str(e)}"
+#             }), 201
+    
+#     return jsonify({'message': user_message}), 201
+
 @app.route('/api/guest/messages', methods=['POST'])
 def add_guest_message():
     """Add message to guest session"""
     content = request.json.get('content')
     role = request.json.get('role', 'user')
-    
+   
     if not content:
         return jsonify({'error': 'Message content is required'}), 400
-    
+   
     # Initialize session if it doesn't exist
     if 'guest_messages' not in session:
         session['guest_messages'] = []
-    
+   
     # Add user message
     user_message = {
         'id': len(session['guest_messages']) + 1,
@@ -427,16 +479,25 @@ def add_guest_message():
         'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
     session['guest_messages'].append(user_message)
-    
+   
     # Generate AI response for user messages
     if role == 'user':
         try:
-            # Convert session messages to format expected by Gemini
-            messages_for_ai = [{'role': msg['role'], 'content': msg['content']} 
-                             for msg in session['guest_messages']]
-            
-            ai_response = gemini_integration.get_gemini_response(messages_for_ai)
-            
+            # *** NEW: Check if this is a dialect-related query ***
+            dialect_response = dialect_middleware.process_dialect_request(content, is_authenticated=False)
+           
+            if dialect_response:
+                # For guest users, return login requirement message instead of dialect response
+                ai_response = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature."
+                source = 'login_required'
+            else:
+                # Convert session messages to format expected by Gemini
+                messages_for_ai = [{'role': msg['role'], 'content': msg['content']}
+                                 for msg in session['guest_messages']]
+               
+                ai_response = gemini_integration.get_gemini_response(messages_for_ai)
+                source = 'gemini_ai'
+           
             ai_message = {
                 'id': len(session['guest_messages']) + 1,
                 'role': 'akuru',
@@ -444,18 +505,19 @@ def add_guest_message():
                 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
             session['guest_messages'].append(ai_message)
-            
+           
             return jsonify({
                 'user_message': user_message,
-                'ai_response': ai_message
+                'ai_response': ai_message,
+                'source': source  # Indicate the response source
             }), 201
-            
+           
         except Exception as e:
             return jsonify({
                 'user_message': user_message,
                 'error': f"Failed to generate AI response: {str(e)}"
             }), 201
-    
+   
     return jsonify({'message': user_message}), 201
 
 @app.route('/api/guest/new-chat', methods=['POST'])

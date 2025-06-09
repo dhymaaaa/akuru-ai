@@ -1,4 +1,3 @@
-# dialect_middleware.py
 import re
 import db
 
@@ -6,9 +5,7 @@ class DialectMiddleware:
     def __init__(self):
         # Keywords that indicate dialect-related queries (English only)
         self.dialect_keywords = [
-            'dialect', 'dialects', 'male', 'huvadhoo', 'addu', 'translation',
-            'translate', 'dhivehi', 'thaana', 'maldivian', 'regional',
-            'how do you say', 'what is', 'meaning of', 'family', 'relatives'
+            'dialect', 'dialects', 'male', 'huvadhoo', 'addu', 'translation', 'regional'
         ]
         
         # English family terms that are in our database
@@ -20,11 +17,9 @@ class DialectMiddleware:
     def should_handle_request(self, message_content, is_authenticated=False):
         """
         Determine if this request should be handled by dialect middleware
-        Only for authenticated users asking in English about dialects specifically
+        For authenticated users: handle the request normally
+        For guest users: detect dialect queries but don't process them
         """
-        if not is_authenticated:
-            return False
-        
         # Check if message contains non-Latin characters (likely not English)
         if self._contains_non_latin_chars(message_content):
             return False
@@ -73,27 +68,36 @@ class DialectMiddleware:
             # Other non-Latin ranges can be added here if needed
         return False
 
+    def determine_display_format(self, user_query):
+        """Determine display format based on user query patterns"""
+        patterns = [
+            (r"translate ['\"]?([^'\"?]+)['\"]? to dialects", 'all'),
+            (r"['\"]?([^'\"?]+)['\"]? in male dialect", 'male'),
+            (r"['\"]?([^'\"?]+)['\"]? in huvadhoo", 'huvadhoo'),
+            (r"['\"]?([^'\"?]+)['\"]? in addu", 'addu')
+        ]
+        
+        for pattern, format_type in patterns:
+            match = re.search(pattern, user_query, re.IGNORECASE)
+            if match:
+                search_term = match.group(1).strip()
+                # Clean up common words that might be captured
+                cleaned = re.sub(r'\b(the|a|an)\b', '', search_term).strip()
+                return (cleaned if cleaned else search_term), format_type
+        
+        return None, 'auto'
+
     def extract_search_term(self, message_content):
         """
         Extract the term user is asking about from their message
         """
+        # First try the pattern-based extraction
+        search_term, _ = self.determine_display_format(message_content)
+        if search_term:
+            return search_term
+            
+        # Fallback to original logic
         message_lower = message_content.lower()
-        
-        # Patterns to extract search terms
-        patterns = [
-            r"translate ['\"]?([^'\"?]+)['\"]? to dialects",
-            r"['\"]?([^'\"?]+)['\"]? in male dialect",
-            r"['\"]?([^'\"?]+)['\"]? in huvadhoo",
-            r"['\"]?([^'\"?]+)['\"]? in addu"
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, message_lower)
-            if match:
-                extracted = match.group(1).strip()
-                # Clean up common words that might be captured
-                cleaned = re.sub(r'\b(the|a|an)\b', '', extracted).strip()
-                return cleaned if cleaned else extracted
         
         # If no pattern matches, try to find known English family terms
         words = message_lower.split()
@@ -119,7 +123,37 @@ class DialectMiddleware:
         results = db.search_dialects(search_term)
         return results
 
-    def format_dialect_response(self, dialect_data, search_term=None):
+    def format_single_dialect_only(self, dialect, dialect_name):
+        """Format showing only one specific dialect"""
+        dialect_map = {
+            'male': ('Malé', dialect['male_term']),
+            'huvadhoo': ('Huvadhoo', dialect['huvadhoo_term']),
+            'addu': ('Addu', dialect['addu_term'])
+        }
+        
+        display_name, term = dialect_map[dialect_name]
+        return f"**{dialect['eng_term']}** in {display_name} dialect: {term}"
+
+    def format_multiple_dialects_single_column(self, dialects, search_term, dialect_name):
+        """Format multiple results showing only one dialect column"""
+        dialect_map = {
+            'male': ('Malé', 'male_term'),
+            'huvadhoo': ('Huvadhoo', 'huvadhoo_term'),
+            'addu': ('Addu', 'addu_term')
+        }
+        
+        display_name, term_key = dialect_map[dialect_name]
+        response = f"I found {len(dialects)} entries for '{search_term}' in {display_name} dialect:\n\n"
+        
+        for i, dialect in enumerate(dialects[:5], 1):
+            response += f"**{i}. {dialect['eng_term']}**: {dialect[term_key]}\n"
+        
+        if len(dialects) > 5:
+            response += f"\n... and {len(dialects) - 5} more results."
+        
+        return response
+
+    def format_dialect_response(self, dialect_data, search_term=None, format_type='auto'):
         """
         Format the dialect data into a user-friendly response
         """
@@ -129,14 +163,24 @@ class DialectMiddleware:
         
         # Handle single result
         if isinstance(dialect_data, dict):
-            return self._format_single_dialect(dialect_data)
+            if format_type == 'all' or format_type == 'auto':
+                return self._format_single_dialect(dialect_data)
+            elif format_type in ['male', 'huvadhoo', 'addu']:
+                return self.format_single_dialect_only(dialect_data, format_type)
         
         # Handle multiple results
         if isinstance(dialect_data, list):
             if len(dialect_data) == 1:
-                return self._format_single_dialect(dialect_data[0])
+                dialect = dialect_data[0]
+                if format_type == 'all' or format_type == 'auto':
+                    return self._format_single_dialect(dialect)
+                elif format_type in ['male', 'huvadhoo', 'addu']:
+                    return self.format_single_dialect_only(dialect, format_type)
             else:
-                return self._format_multiple_dialects(dialect_data, search_term)
+                if format_type == 'all' or format_type == 'auto':
+                    return self._format_multiple_dialects(dialect_data, search_term)
+                elif format_type in ['male', 'huvadhoo', 'addu']:
+                    return self.format_multiple_dialects_single_column(dialect_data, search_term, format_type)
                 
         return "Unable to format dialect information."
 
@@ -146,7 +190,7 @@ class DialectMiddleware:
         response += f"**Malé**: {dialect['male_term']}\n"
         response += f"**Huvadhoo**: {dialect['huvadhoo_term']}\n"
         response += f"**Addu**: {dialect['addu_term']}\n\n"
-        response += "These are the regional variations of this word across different atolls in the Maldives."
+        response += "These are the regional variations of this word across different dialects in the Maldives."
         return response
 
     def _format_multiple_dialects(self, dialects, search_term):
@@ -155,7 +199,7 @@ class DialectMiddleware:
         
         for i, dialect in enumerate(dialects[:5], 1):  # Limit to 5 results
             response += f"**{i}. {dialect['eng_term']}**\n"
-            response += f"   Malé: {dialect['male_term']} | "
+            response += f"Malé: {dialect['male_term']} | "
             response += f"Huvadhoo: {dialect['huvadhoo_term']} | "
             response += f"Addu: {dialect['addu_term']}\n\n"
             
@@ -167,12 +211,30 @@ class DialectMiddleware:
     def process_dialect_request(self, message_content, is_authenticated=False):
         """
         Main method to process dialect requests
-        Returns None if request should go to Gemini, otherwise returns dialect response
+        For authenticated users: Returns dialect response or None
+        For guest users: Returns True if dialect detected, None otherwise
         """
-        if not self.should_handle_request(message_content, is_authenticated):
+        # First check if this looks like a dialect query
+        is_dialect_query = self.should_handle_request(message_content, is_authenticated=True)  # Always check for dialect patterns
+        
+        if not is_dialect_query:
             return None
-            
-        search_term = self.extract_search_term(message_content)
+        
+        # If it's a dialect query but user is not authenticated, return True to indicate detection
+        if not is_authenticated:
+            return True
+        
+        # For authenticated users, process the dialect request normally
+        # Determine search term and format type from user query
+        search_term, format_type = self.determine_display_format(message_content)
+        
+        # If no specific pattern matched, fall back to original extraction
+        if not search_term:
+            search_term = self.extract_search_term(message_content)
+            format_type = 'auto'
+        
+        # Search for dialect data
         dialect_data = self.search_dialects(search_term)
         
-        return self.format_dialect_response(dialect_data, search_term)
+        # Format and return response
+        return self.format_dialect_response(dialect_data, search_term, format_type)
