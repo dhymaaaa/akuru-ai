@@ -488,7 +488,7 @@ def add_guest_message():
            
             if dialect_response:
                 # For guest users, return login requirement message instead of dialect response
-                ai_response = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature."
+                ai_response = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature.\n  ދިވެހި ބަހުރުވަ ތަކަށް ތަރުޖަމާ ކުރުމަށް އެކައުންޓެއް ހައްދަވާ، ނުވަތަ ލޮގިންވެ ލައްވާ. މި ފީޗަރަކީ ލޮގިންވާ ފަރާތްތަކަށް އިންނަ ފީޗަރެއް."
                 source = 'login_required'
             else:
                 # Convert session messages to format expected by Gemini

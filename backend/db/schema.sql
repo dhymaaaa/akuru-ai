@@ -34,27 +34,17 @@ CREATE TABLE IF NOT EXISTS messages (
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
--- Create dialect table
+
 CREATE TABLE IF NOT EXISTS dialects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     eng_term VARCHAR(100) NOT NULL,
     male_term VARCHAR(200),
     huvadhoo_term VARCHAR(200),
-    addu_term VARCHAR(200)
+    addu_term VARCHAR(200),
+    male_transliteration VARCHAR(255),
+    huvadhoo_transliteration VARCHAR(255),
+    addu_transliteration VARCHAR(255)
 );
-
--- INSERT INTO dialects (eng_term, male_term, huvadhoo_term, addu_term) VALUES
--- ('Mother', 'މަންމަ', 'މަންމަ', 'މަންމާ / އަމާ'),
--- ('Father', 'ބައްޕަ', 'ބައްޕަ / އައްޕަ', 'ބައްޕާ'),
--- ('Son', 'ފިރިހެން ދަރި', 'ހުތާ', 'ފުތާ'),
--- ('Daughter', 'އަންހެން ދަރި', 'ދިޔެ', 'ދިޔެ'),
--- ('Brother older', 'ބޭބެ', 'ބޭބެ', 'ބޭބެ'),
--- ('Sister older', 'ދައްތަ', 'ދައްތަ', 'ދައްތަ'),
--- ('Brother / sister younger', 'ކޮއްކޮ', 'ކޮއްކޮ', 'ކޮއްކޮ'),
--- ('Grandmother', 'މާމަ', 'މާމަ / މުންނާ', 'މާމަ / މުންނާ'),
--- ('Grandfather', 'ކާފަ', 'ކާފަ', 'ކާފަ'),
--- ('Aunt', 'ބޮޑު ދައިތަ', 'ބޮޑެއައްތާ', 'ބޮންޑޮ ދައިތާ'),
--- ('Uncle', 'ބޮޑު ބޭބެ', 'ބޮޑެބޭ', 'ބޮންޑޮ ބޭބޭ');
 
 
 

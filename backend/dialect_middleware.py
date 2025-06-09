@@ -123,30 +123,40 @@ class DialectMiddleware:
         results = db.search_dialects(search_term)
         return results
 
+    def _format_dialect_term(self, dhivehi_term, transliteration):
+        """Helper method to format Dhivehi term with transliteration"""
+        if transliteration:
+            return f"{dhivehi_term} ({transliteration})"
+        return dhivehi_term
+
     def format_single_dialect_only(self, dialect, dialect_name):
         """Format showing only one specific dialect"""
         dialect_map = {
-            'male': ('Malé', dialect['male_term']),
-            'huvadhoo': ('Huvadhoo', dialect['huvadhoo_term']),
-            'addu': ('Addu', dialect['addu_term'])
+            'male': ('Malé', dialect['male_term'], dialect.get('male_transliteration')),
+            'huvadhoo': ('Huvadhoo', dialect['huvadhoo_term'], dialect.get('huvadhoo_transliteration')),
+            'addu': ('Addu', dialect['addu_term'], dialect.get('addu_transliteration'))
         }
         
-        display_name, term = dialect_map[dialect_name]
-        return f"**{dialect['eng_term']}** in {display_name} dialect: {term}"
+        display_name, term, transliteration = dialect_map[dialect_name]
+        formatted_term = self._format_dialect_term(term, transliteration)
+        return f"**{dialect['eng_term']}** in {display_name} dialect: {formatted_term}"
 
     def format_multiple_dialects_single_column(self, dialects, search_term, dialect_name):
         """Format multiple results showing only one dialect column"""
         dialect_map = {
-            'male': ('Malé', 'male_term'),
-            'huvadhoo': ('Huvadhoo', 'huvadhoo_term'),
-            'addu': ('Addu', 'addu_term')
+            'male': ('Malé', 'male_term', 'male_transliteration'),
+            'huvadhoo': ('Huvadhoo', 'huvadhoo_term', 'huvadhoo_transliteration'),
+            'addu': ('Addu', 'addu_term', 'addu_transliteration')
         }
         
-        display_name, term_key = dialect_map[dialect_name]
-        response = f"I found {len(dialects)} entries for '{search_term}' in {display_name} dialect:\n\n"
+        display_name, term_key, trans_key = dialect_map[dialect_name]
+        response = f"There are {len(dialects)} ways to say '{search_term}' in {display_name} dialect:\n\n"
         
         for i, dialect in enumerate(dialects[:5], 1):
-            response += f"**{i}. {dialect['eng_term']}**: {dialect[term_key]}\n"
+            dhivehi_term = dialect[term_key]
+            transliteration = dialect.get(trans_key)
+            formatted_term = self._format_dialect_term(dhivehi_term, transliteration)
+            response += f"**{i}. {dialect['eng_term']}**: {formatted_term}\n"
         
         if len(dialects) > 5:
             response += f"\n... and {len(dialects) - 5} more results."
@@ -185,23 +195,53 @@ class DialectMiddleware:
         return "Unable to format dialect information."
 
     def _format_single_dialect(self, dialect):
-        """Format a single dialect entry"""
+        """Format a single dialect entry with transliterations"""
         response = f"**{dialect['eng_term']}** in Maldivian dialects:\n\n"
-        response += f"**Malé**: {dialect['male_term']}\n"
-        response += f"**Huvadhoo**: {dialect['huvadhoo_term']}\n"
-        response += f"**Addu**: {dialect['addu_term']}\n\n"
+        
+        # Format each dialect with transliteration
+        male_formatted = self._format_dialect_term(
+            dialect['male_term'], 
+            dialect.get('male_transliteration')
+        )
+        huvadhoo_formatted = self._format_dialect_term(
+            dialect['huvadhoo_term'], 
+            dialect.get('huvadhoo_transliteration')
+        )
+        addu_formatted = self._format_dialect_term(
+            dialect['addu_term'], 
+            dialect.get('addu_transliteration')
+        )
+        
+        response += f"**Malé**: {male_formatted}\n"
+        response += f"**Huvadhoo**: {huvadhoo_formatted}\n"
+        response += f"**Addu**: {addu_formatted}\n\n"
         response += "These are the regional variations of this word across different dialects in the Maldives."
         return response
 
     def _format_multiple_dialects(self, dialects, search_term):
-        """Format multiple dialect entries"""
+        """Format multiple dialect entries with transliterations"""
         response = f"I found {len(dialects)} dialect entries related to '{search_term}':\n\n"
         
         for i, dialect in enumerate(dialects[:5], 1):  # Limit to 5 results
             response += f"**{i}. {dialect['eng_term']}**\n"
-            response += f"Malé: {dialect['male_term']} | "
-            response += f"Huvadhoo: {dialect['huvadhoo_term']} | "
-            response += f"Addu: {dialect['addu_term']}\n\n"
+            
+            # Format each dialect with transliteration
+            male_formatted = self._format_dialect_term(
+                dialect['male_term'], 
+                dialect.get('male_transliteration')
+            )
+            huvadhoo_formatted = self._format_dialect_term(
+                dialect['huvadhoo_term'], 
+                dialect.get('huvadhoo_transliteration')
+            )
+            addu_formatted = self._format_dialect_term(
+                dialect['addu_term'], 
+                dialect.get('addu_transliteration')
+            )
+            
+            response += f"Malé: {male_formatted} | "
+            response += f"Huvadhoo: {huvadhoo_formatted} | "
+            response += f"Addu: {addu_formatted}\n\n"
             
         if len(dialects) > 5:
             response += f"... and {len(dialects) - 5} more results. Please be more specific for better results."
