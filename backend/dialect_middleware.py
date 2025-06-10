@@ -21,7 +21,7 @@ class DialectMiddleware:
         For guest users: detect dialect queries but don't process them
         """
         # Check if message contains non-Latin characters (likely not English)
-        if self._contains_non_latin_chars(message_content):
+        if self.contains_non_latin_chars(message_content):
             return False
             
         message_lower = message_content.lower()
@@ -53,7 +53,7 @@ class DialectMiddleware:
                 
         return False
 
-    def _contains_non_latin_chars(self, text):
+    def contains_non_latin_chars(self, text):
         """
         Check if text contains non-Latin characters (like Dhivehi/Thaana)
         """
@@ -123,7 +123,7 @@ class DialectMiddleware:
         results = db.search_dialects(search_term)
         return results
 
-    def _format_dialect_term(self, dhivehi_term, transliteration):
+    def format_dialect_term(self, dhivehi_term, transliteration):
         """Helper method to format Dhivehi term with transliteration"""
         if transliteration:
             return f"{dhivehi_term} ({transliteration})"
@@ -138,7 +138,7 @@ class DialectMiddleware:
         }
         
         display_name, term, transliteration = dialect_map[dialect_name]
-        formatted_term = self._format_dialect_term(term, transliteration)
+        formatted_term = self.format_dialect_term(term, transliteration)
         return f"**{dialect['eng_term']}** in {display_name} dialect: {formatted_term}"
 
     def format_multiple_dialects_single_column(self, dialects, search_term, dialect_name):
@@ -155,7 +155,7 @@ class DialectMiddleware:
         for i, dialect in enumerate(dialects[:5], 1):
             dhivehi_term = dialect[term_key]
             transliteration = dialect.get(trans_key)
-            formatted_term = self._format_dialect_term(dhivehi_term, transliteration)
+            formatted_term = self.format_dialect_term(dhivehi_term, transliteration)
             response += f"**{i}. {dialect['eng_term']}**: {formatted_term}\n"
         
         if len(dialects) > 5:
@@ -174,7 +174,7 @@ class DialectMiddleware:
         # Handle single result
         if isinstance(dialect_data, dict):
             if format_type == 'all' or format_type == 'auto':
-                return self._format_single_dialect(dialect_data)
+                return self.format_single_dialect(dialect_data)
             elif format_type in ['male', 'huvadhoo', 'addu']:
                 return self.format_single_dialect_only(dialect_data, format_type)
         
@@ -183,31 +183,31 @@ class DialectMiddleware:
             if len(dialect_data) == 1:
                 dialect = dialect_data[0]
                 if format_type == 'all' or format_type == 'auto':
-                    return self._format_single_dialect(dialect)
+                    return self.format_single_dialect(dialect)
                 elif format_type in ['male', 'huvadhoo', 'addu']:
                     return self.format_single_dialect_only(dialect, format_type)
             else:
                 if format_type == 'all' or format_type == 'auto':
-                    return self._format_multiple_dialects(dialect_data, search_term)
+                    return self.format_multiple_dialects(dialect_data, search_term)
                 elif format_type in ['male', 'huvadhoo', 'addu']:
                     return self.format_multiple_dialects_single_column(dialect_data, search_term, format_type)
                 
         return "Unable to format dialect information."
 
-    def _format_single_dialect(self, dialect):
+    def format_single_dialect(self, dialect):
         """Format a single dialect entry with transliterations"""
         response = f"**{dialect['eng_term']}** in Maldivian dialects:\n\n"
         
         # Format each dialect with transliteration
-        male_formatted = self._format_dialect_term(
+        male_formatted = self.format_dialect_term(
             dialect['male_term'], 
             dialect.get('male_transliteration')
         )
-        huvadhoo_formatted = self._format_dialect_term(
+        huvadhoo_formatted = self.format_dialect_term(
             dialect['huvadhoo_term'], 
             dialect.get('huvadhoo_transliteration')
         )
-        addu_formatted = self._format_dialect_term(
+        addu_formatted = self.format_dialect_term(
             dialect['addu_term'], 
             dialect.get('addu_transliteration')
         )
@@ -218,7 +218,7 @@ class DialectMiddleware:
         response += "These are the regional variations of this word across different dialects in the Maldives."
         return response
 
-    def _format_multiple_dialects(self, dialects, search_term):
+    def format_multiple_dialects(self, dialects, search_term):
         """Format multiple dialect entries with transliterations"""
         response = f"I found {len(dialects)} dialect entries related to '{search_term}':\n\n"
         
@@ -226,15 +226,15 @@ class DialectMiddleware:
             response += f"**{i}. {dialect['eng_term']}**\n"
             
             # Format each dialect with transliteration
-            male_formatted = self._format_dialect_term(
+            male_formatted = self.format_dialect_term(
                 dialect['male_term'], 
                 dialect.get('male_transliteration')
             )
-            huvadhoo_formatted = self._format_dialect_term(
+            huvadhoo_formatted = self.format_dialect_term(
                 dialect['huvadhoo_term'], 
                 dialect.get('huvadhoo_transliteration')
             )
-            addu_formatted = self._format_dialect_term(
+            addu_formatted = self.format_dialect_term(
                 dialect['addu_term'], 
                 dialect.get('addu_transliteration')
             )
