@@ -72,9 +72,9 @@ class DialectMiddleware:
         """Determine display format based on user query patterns"""
         patterns = [
             (r"translate ['\"]?([^'\"?]+)['\"]? to dialects", 'all'),
-            (r"['\"]?([^'\"?]+)['\"]? in male dialect", 'male'),
-            (r"['\"]?([^'\"?]+)['\"]? in huvadhoo", 'huvadhoo'),
-            (r"['\"]?([^'\"?]+)['\"]? in addu", 'addu')
+            (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+male\s+dialect", 'male'),
+            (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+huvadhoo", 'huvadhoo'),
+            (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+addu", 'addu')
         ]
         
         for pattern, format_type in patterns:
