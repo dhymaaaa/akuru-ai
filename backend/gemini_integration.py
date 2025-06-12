@@ -40,7 +40,7 @@ Example interaction:
 User: "What is the Dhivehi word for unique?"
 Assistant: "Great question! The word for 'unique' is 'ލާސާނީ' (lāsānī) in Dhivehi. It's a beautiful word!
 
-'ޔުނީކް' އަށް ދިވެހިބަހުން ކިޔަނީ 'ލާސާނީ' އެވެ. މި ބަހަކީ ރީތި ބަހެކެވެ!"
+'ޔުނީކް' އަށް ދިވެހިބަހުން ކިޔަނީ 'ލާސާނީ' އެވެ."
 """
 
 def initialize_chat_session():
