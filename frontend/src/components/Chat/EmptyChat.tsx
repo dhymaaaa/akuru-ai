@@ -48,7 +48,7 @@ const EmptyChat: React.FC<EmptyChatProps> = ({
           <div className="text-center">
             <div className="text-gray-400 mb-4">
               <span className="whitespace-pre-wrap tracking-tight text-[#F9D8B5]">
-                For a complete experience with saved conversations, please create an account or log in.
+                For a complete experience with saved conversations and dialect functionality, please create an account or log in.
               </span>
             </div>
           </div>
