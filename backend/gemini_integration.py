@@ -1,4 +1,5 @@
 import os
+import re
 import google.generativeai as genai
 from dotenv import load_dotenv
 from flask import current_app
@@ -20,28 +21,91 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 # System instruction for the Gemini model
 SYSTEM_INSTRUCTION = """
-You are a friendly and patient Dhivehi language learning assistant. Your role is to help users learn Dhivehi in a supportive, encouraging way.
+You are Akuru, a friendly and patient Dhivehi language learning assistant. Your name is Akuru and you are specifically designed to help users learn Dhivehi in a supportive, encouraging way.
 
 Key guidelines:
+- Your name is Akuru - introduce yourself when appropriate and respond when users ask your name
 - Always be enthusiastic and supportive about language learning
 - Never reference previous conversations or mention if a question was asked before
 - Treat each question as fresh and new, even if it's repetitive
-- Use phrases like "Great question!", "Let me explain that for you!"
+- Vary your responses naturally - don't always start with the same phrases
 - Be patient with learners who ask the same things multiple times
 - Focus on being helpful rather than efficient but still focus on efficiency
 
-IMPORTANT: Format your responses with English first, followed by a newline, then the Dhivehi translation:
+CRITICAL FORMATTING RULE: 
+1. First section: English only
+2. Do NOT use "بالکل" or any Arabic/Urdu words in the Dhivehi section
+3. Do NOT use "ච්", "ච", "තේරුම්" or any Sinhala words in the Dhivehi section
+4. Do NOT use "മനസ്സിലാ" or any Malayalam words in the Dhivehi section
+
+IMPORTANT: Format your responses with English first, followed by a newline, then PURE Dhivehi (no Arabic or urdu words mixed in):
 
 [English response here]
 
 [Dhivehi response here]
 
 Example interaction:
+User: "What is your name?"
+Assistant: "Hi there! My name is Akuru, and I'm here to help you learn Dhivehi! It's wonderful to meet you.
+
+އަހަރެންގެ ނަމަކީ އަކުރެވެ، އަދި އަހަރެން ހުރީ ތިބާއަށް ދިވެހިބަސް ދަސްކުރުވަން ތައްޔާރަށެވެ."
+
 User: "What is the Dhivehi word for unique?"
-Assistant: "Great question! The word for 'unique' is 'ލާސާނީ' (lāsānī) in Dhivehi. It's a beautiful word!
+Assistant: "The word for 'unique' is 'ލާސާނީ' (lāsānī) in Dhivehi. It's a beautiful word!
 
 'ޔުނީކް' އަށް ދިވެހިބަހުން ކިޔަނީ 'ލާސާނީ' އެވެ."
+
+WRONG example (do NOT do this):
+"ތިޔަބުނަނީ بالکل ރަނގަޅު ވާހަކައެކެވެ! ޝުކުރިއްޔާ!" 
+
+CORRECT example:
+"ތިޔަ ބުނަނީ ވަރަށް ރަނގަޅު ވާހަކައެކެވެ! ޝުކުރިއްޔާ!" 
 """
+
+def initialize_chat_session():
+    """Initialize and return a new chat session with the model."""
+    return model.start_chat(history=[
+        {"role": "user", "parts": ["Please act as a friendly Dhivehi language learning assistant with the following instructions:"]},
+        {"role": "model", "parts": ["I'm excited to help you learn Dhivehi! I'll be your friendly and patient language learning companion."]},
+        {"role": "user", "parts": [SYSTEM_INSTRUCTION]},
+        {"role": "model", "parts": ["Perfect! I understand. I'll be a friendly, enthusiastic Dhivehi language learning assistant. I'll treat every question as new and exciting, encourage repetition as part of learning, and always respond with both English and Dhivehi. I'm here to make your language learning journey enjoyable! What would you like to learn today?"]}
+    ])
+
+def clean_dhivehi_text(text):
+    """
+    Clean the Dhivehi text by removing non-Dhivehi characters and common foreign words.
+    
+    Args:
+        text: The text to clean
+        
+    Returns:
+        Cleaned text with only Dhivehi characters, English letters, numbers, and basic punctuation
+    """
+    # Define allowed character ranges
+    dhivehi_range = r'\u0780-\u07BF'  # Dhivehi/Thaana script
+    english_range = r'a-zA-Z'  # English letters
+    numbers = r'0-9'  # Numbers
+    basic_punctuation = r'.,!?؛،\s()\[\]"\'`'  # Basic punctuation including Arabic punctuation
+    
+    # Combine all allowed characters
+    allowed_pattern = f'[{dhivehi_range}{english_range}{numbers}{basic_punctuation}]'
+    
+    # Remove characters that are NOT in the allowed ranges
+    cleaned_text = re.sub(f'[^{dhivehi_range}{english_range}{numbers}{basic_punctuation}]', '', text)
+    
+    # Define common foreign words to replace with Dhivehi equivalents
+    replacements = {
+        'بالکل': 'ހަމަ',  # Arabic "bilkul" -> Dhivehi "hama" (exactly/completely)
+        'ޝުކުރިއްޔާ': 'ޝުކުރު',  # Arabic "shukuriyyaa" -> simpler Dhivehi "shukuru" 
+        'ތަންކިޔޫ': 'ޝުކުރު',  # English "thank you" -> Dhivehi "shukuru"
+        'ސަރީ': 'މާފުކުރައްވާ',  # English "sorry" -> Dhivehi "maafukuravvaa"
+    }
+    
+    # Apply replacements
+    for foreign_word, dhivehi_word in replacements.items():
+        cleaned_text = cleaned_text.replace(foreign_word, dhivehi_word)
+    
+    return cleaned_text
 
 def initialize_chat_session():
     """Initialize and return a new chat session with the model."""
@@ -60,7 +124,7 @@ def get_gemini_response(messages):
         messages: List of message dictionaries with 'role' and 'content' keys
    
     Returns:
-        String response from Gemini with English and Dhivehi properly separated
+        String response from Gemini with English and Dhivehi properly separated and filtered
     """
     try:
         # Create a new chat session
@@ -81,7 +145,6 @@ def get_gemini_response(messages):
             raw_text = response.text
             
             # Post-process the response to separate English and Dhivehi
-            import re
             dhivehi_pattern = re.compile(r'[\u0780-\u07BF]')
             match = dhivehi_pattern.search(raw_text)
             
@@ -101,8 +164,11 @@ def get_gemini_response(messages):
                 english_part = raw_text[:split_pos].strip()
                 dhivehi_part = raw_text[split_pos:].strip()
                 
+                # Clean the Dhivehi part to remove foreign characters
+                cleaned_dhivehi_part = clean_dhivehi_text(dhivehi_part)
+                
                 # Combine with proper formatting (double newline)
-                formatted_response = f"{english_part}\n\n{dhivehi_part}"
+                formatted_response = f"{english_part}\n\n{cleaned_dhivehi_part}"
                 return formatted_response
             else:
                 # If no Dhivehi characters found, return the original text
