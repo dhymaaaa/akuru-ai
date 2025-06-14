@@ -21,6 +21,12 @@ export const SignUp = () => {
             navigate('/');
         };
 
+    // Check password requirements
+    const passwordRequirements = {
+        minLength: password.length >= 6,
+        match: password === confirmPassword && confirmPassword.length > 0
+    };
+
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
@@ -39,7 +45,8 @@ export const SignUp = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/signup', {
+            // First, create the user account
+            const signupResponse = await fetch('http://localhost:5000/api/signup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -47,11 +54,29 @@ export const SignUp = () => {
                 body: JSON.stringify({ name, email, password }),
             });
 
-            const data = await response.json();
+            const signupData = await signupResponse.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to sign up');
+            if (!signupResponse.ok) {
+                throw new Error(signupData.error || 'Failed to sign up');
             }
+
+            // After successful signup, automatically log the user in
+            const loginResponse = await fetch('http://localhost:5000/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const loginData = await loginResponse.json();
+
+            if (!loginResponse.ok) {
+                throw new Error(loginData.error || 'Failed to log in after signup');
+            }
+
+            // Store token in localStorage
+            localStorage.setItem('token', loginData.token);
 
             // Clear form
             setName('');
@@ -59,8 +84,8 @@ export const SignUp = () => {
             setPassword('');
             setConfirmPassword('');
 
-            // Redirect to login page
-            navigate('/login', { state: { message: 'Account created successfully! Please log in.' } });
+            // Redirect to auth home page
+            navigate('/');
 
         } catch (err: unknown) {
             if (err instanceof Error) {
@@ -151,21 +176,35 @@ export const SignUp = () => {
                             <input
                                 type="password"
                                 placeholder="Password"
-                                className="w-full px-3 py-3 mb-3 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-md focus:outline-none"
+                                className="w-full px-3 py-3 mb-2 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-md focus:outline-none"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                             />
+                            {/* Password Requirements */}
+                            <div className="mb-3 text-xs">
+                                <div className={`pl-2 flex items-center ${password.length === 0 ? 'text-[#E9D8B5]' : passwordRequirements.minLength ? 'text-green-400' : 'text-red-400'}`}>
+                                    Password must be at least 6 characters
+                                </div>
+                            </div>
                         </div>
                         <div className="w-3/4">
                             <input
                                 type="password"
                                 placeholder="Confirm password"
-                                className="w-full px-4 py-3 mb-3 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-md focus:outline-none"
+                                className="w-full px-4 py-3 mb-2 bg-transparent text-[#E9D8B5] placeholder-[#E9D8B5] border border-[#E9D8B5] rounded-md focus:outline-none"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
                             />
+                            {/* Password Match Indicator */}
+                            {confirmPassword.length > 0 && (
+                                <div className="mb-3 text-xs">
+                                    <div className={`pl-2 flex items-center ${passwordRequirements.match ? 'text-green-400' : 'text-red-400'}`}>
+                                        Passwords match
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="pt-2 w-3/4">
                             <button
