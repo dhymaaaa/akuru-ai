@@ -66,7 +66,8 @@ const formatMessageContent = (content: string) => {
         
         return (
           <React.Fragment key={`mixed-${index}`}>
-            {index > 0 && <br />}
+            {index > 0}
+            {/* {index > 0 && <br />} */}
             {result}
           </React.Fragment>
         );
