@@ -1,4 +1,3 @@
-// hooks/useChatMessages.ts
 import { useState, useRef, useCallback, RefObject, useEffect } from 'react';
 import { Message } from '@/types';
 
@@ -13,23 +12,26 @@ export const useChatMessages = (
   const [isFetchingMessages, setIsFetchingMessages] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [streamingMessage, setStreamingMessage] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Auto-scroll when messages change
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 || streamingMessage) {
       setTimeout(() => {
         scrollToBottom();
       }, 100);
     }
-  }, [messages]);
+  }, [messages, streamingMessage]);
 
   // Fetch messages for a conversation (authenticated users only)
   const fetchMessages = useCallback(async (conversationId: number) => {
     if (!conversationId) return;
     
     try {
-      console.log('Setting isFetchingMessages to true (fetchMessages)'); // DEBUG LOG
+      console.log('Setting isFetchingMessages to true (fetchMessages)');
       setIsFetchingMessages(true);
       setError(null);
       
@@ -74,7 +76,7 @@ export const useChatMessages = (
       console.error('Error fetching messages:', err);
       setError(`Error fetching messages: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      console.log('Setting isFetchingMessages to false (fetchMessages)'); // DEBUG LOG
+      console.log('Setting isFetchingMessages to false (fetchMessages)');
       setIsFetchingMessages(false);
     }
   }, []);
@@ -88,7 +90,6 @@ export const useChatMessages = (
       });
 
       if (!response.ok) {
-        // If no session exists, just start with empty messages
         if (response.status === 404) {
           setMessages([]);
           return;
@@ -100,27 +101,176 @@ export const useChatMessages = (
       setMessages(guestMessages || []);
     } catch (err) {
       console.error('Error fetching guest messages:', err);
-      // For guests, we don't show errors for missing sessions
       setMessages([]);
     }
   }, []);
 
+  // Scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
+  }, []);
+
+  // Stream AI response for authenticated users
+  const streamAIResponse = useCallback(async (conversationId: number) => {
+    try {
+      setIsStreaming(true);
+      setStreamingMessage('');
+      
+      // Create abort controller for this request
+      abortControllerRef.current = new AbortController();
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log(`Starting stream for conversation ${conversationId}`);
+      
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversation_id: conversationId
+        }),
+        signal: abortControllerRef.current.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Streaming failed: ${response.status} ${response.statusText}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No readable stream available');
+      }
+
+      const decoder = new TextDecoder();
+      let englishSection = '';
+      let dhivehiSection = '';
+      let currentSection = 'english';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.section_change && data.section === 'dhivehi') {
+                  currentSection = 'dhivehi';
+                  continue;
+                }
+
+                if (data.chunk) {
+                  if (currentSection === 'english') {
+                    englishSection += data.chunk;
+                  } else {
+                    dhivehiSection += data.chunk;
+                  }
+                  
+                  // Update the streaming message display
+                  const displayText = englishSection + (dhivehiSection ? '\n\n' + dhivehiSection : '');
+                  setStreamingMessage(displayText);
+                  
+                  // Scroll to bottom as text streams in
+                  setTimeout(() => scrollToBottom(), 10);
+                }
+              } catch (parseError) {
+                console.error('Error parsing streaming data:', parseError);
+              }
+            }
+          }
+        }
+
+        // When streaming is complete, save the final message
+        const finalMessage = englishSection + (dhivehiSection ? '\n\n' + dhivehiSection : '');
+        
+        if (finalMessage.trim()) {
+          // Save the AI response to backend
+          const saveResponse = await fetch(`/api/conversations/${conversationId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              role: 'akuru',
+              content: finalMessage
+            })
+          });
+
+          if (saveResponse.ok) {
+            const saveData = await saveResponse.json();
+            
+            // Add the complete message to the messages array
+            const aiMessage: Message = {
+              id: saveData.id,
+              role: 'akuru',
+              content: finalMessage
+            };
+            
+            setMessages(prev => [...prev, aiMessage]);
+          }
+        }
+
+      } finally {
+        reader.releaseLock();
+      }
+
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Stream aborted by user');
+      } else {
+        console.error('Error in streaming:', err);
+        setError(`Streaming error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    } finally {
+      setIsStreaming(false);
+      setStreamingMessage('');
+      abortControllerRef.current = null;
+    }
+  }, [scrollToBottom]);
+
+  // Stop streaming
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsStreaming(false);
+      setStreamingMessage('');
+    }
+  }, []);
+
   // Send a message and get AI response
-  const sendMessage = useCallback(async (content: string, isAuthenticated: boolean = false) => {
+  const sendMessage = useCallback(async (content: string, isAuthenticated: boolean = false, useStreaming: boolean = true) => {
     if (!content.trim()) return;
 
     try {
-      console.log('Setting isProcessing to true (sendMessage)', { isAuthenticated }); // DEBUG LOG
+      console.log('Setting isProcessing to true (sendMessage)', { isAuthenticated, useStreaming });
       setIsProcessing(true);
       setError(null);
 
       if (!isAuthenticated) {
-        // GUEST USER FLOW
+        // GUEST USER FLOW (non-streaming)
         console.log('Sending guest message:', content);
         
         const response = await fetch('/api/guest/messages', {
           method: 'POST',
-          credentials: 'include', // Important for sessions!
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json'
           },
@@ -137,7 +287,6 @@ export const useChatMessages = (
         const data = await response.json();
         console.log('Guest message response:', data);
 
-        // Add both user and AI messages to the UI
         const newMessages: Message[] = [];
         if (data.user_message) {
           newMessages.push(data.user_message);
@@ -147,9 +296,8 @@ export const useChatMessages = (
         }
 
         setMessages(prev => [...prev, ...newMessages]);
-        setMessage(''); // Clear input
+        setMessage('');
         
-        // Scroll to bottom after DOM updates
         setTimeout(() => {
           scrollToBottom();
         }, 100);
@@ -157,7 +305,7 @@ export const useChatMessages = (
       }
 
       // AUTHENTICATED USER FLOW
-      console.log('Starting authenticated user flow'); // DEBUG LOG
+      console.log('Starting authenticated user flow');
       
       // If no conversation is selected, create a new one
       let conversationId = currentConversationId;
@@ -185,7 +333,8 @@ export const useChatMessages = (
         throw new Error('No authentication token found');
       }
 
-      console.log(`Sending message to conversation ${conversationId}: ${content.substring(0, 20)}...`);
+      // Send the user message to backend first
+      console.log(`Sending user message to conversation ${conversationId}: ${content.substring(0, 20)}...`);
       
       const response = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
@@ -195,77 +344,63 @@ export const useChatMessages = (
         },
         body: JSON.stringify({
           role: 'user',
-          content
+          content,
+          use_streaming: useStreaming
         })
       });
 
-      const responseBody = await response.text();
-      console.log(`Response from sending message: ${response.status}`, responseBody.substring(0, 100) + (responseBody.length > 100 ? '...' : ''));
-      
-      let jsonData;
-      try {
-        jsonData = responseBody ? JSON.parse(responseBody) : null;
-      } catch {
-        console.error('Error parsing response:', responseBody);
-      }
-
       if (!response.ok) {
-        const errorMessage = jsonData?.message || response.statusText || `Error ${response.status}`;
-        throw new Error(`Failed to send message: ${errorMessage}`);
+        throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
       }
 
-      // If the response contains an AI response, add it to the messages
-      if (jsonData && jsonData.ai_response) {
-        console.log('Received AI response, adding to messages'); // DEBUG LOG
+      const data = await response.json();
+      
+      // Handle title update if returned from backend
+      if (data.updated_title && data.conversation_id) {
+        console.log(`Received title update: ${data.updated_title} for conversation ${data.conversation_id}`);
+        onTitleUpdate?.(data.conversation_id, data.updated_title);
+      }
+
+      // If we have an immediate AI response (non-streaming), add it
+      if (data.ai_response && !useStreaming) {
         const aiMessage: Message = {
-          id: jsonData.ai_response.id,
+          id: data.ai_response.id,
           role: 'akuru',
-          content: jsonData.ai_response.content
+          content: data.ai_response.content
         };
         setMessages(prev => [...prev, aiMessage]);
-        
-        // Handle title update if returned from backend
-        if (jsonData.updated_title && jsonData.conversation_id) {
-          console.log(`Received title update: ${jsonData.updated_title} for conversation ${jsonData.conversation_id}`);
-          onTitleUpdate?.(jsonData.conversation_id, jsonData.updated_title);
-        }
-        
         scrollToBottom();
-      } else {
-        console.log('No AI response in jsonData:', jsonData); // DEBUG LOG
+      } else if (useStreaming) {
+        // Start streaming the AI response
+        await streamAIResponse(conversationId);
       }
+
     } catch (err) {
       console.error('Error sending message:', err);
       const errorMessage = `Error sending message: ${err instanceof Error ? err.message : String(err)}`;
       setError(errorMessage);
       
-      // Notify parent component about conversation creation errors
       if (err instanceof Error && 
           err.message.includes('Failed to create conversation') && 
           onConversationError) {
         onConversationError(err.message);
       }
     } finally {
-      console.log('Setting isProcessing to false (sendMessage)', { isAuthenticated }); // DEBUG LOG
+      console.log('Setting isProcessing to false (sendMessage)', { isAuthenticated, useStreaming });
       setIsProcessing(false);
     }
-  }, [currentConversationId, createConversation, onConversationError, onTitleUpdate]);
+  }, [currentConversationId, createConversation, onConversationError, onTitleUpdate, streamAIResponse]);
 
   // Scroll to bottom of messages
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end',
-        inline: 'nearest'
-      });
-    }
-  }, []);
 
   // Clear messages (and guest session if not authenticated)
   const clearMessages = useCallback(async (isAuthenticated: boolean = false) => {
+    // Stop any ongoing streaming
+    stopStreaming();
+    
     setMessages([]);
     setError(null);
+    setStreamingMessage('');
     
     // If guest user, clear the session on the backend
     if (!isAuthenticated) {
@@ -278,7 +413,7 @@ export const useChatMessages = (
         console.error('Error clearing guest session:', err);
       }
     }
-  }, []);
+  }, [stopStreaming]);
 
   // Initialize guest session
   const initializeGuestSession = useCallback(async () => {
@@ -299,6 +434,8 @@ export const useChatMessages = (
     isFetchingMessages,
     message,
     error,
+    streamingMessage,
+    isStreaming,
     messagesEndRef: messagesEndRef as RefObject<HTMLDivElement>,
     setMessage,
     fetchMessages,
@@ -306,8 +443,7 @@ export const useChatMessages = (
     sendMessage,
     clearMessages,
     scrollToBottom,
-    initializeGuestSession
+    initializeGuestSession,
+    stopStreaming
   };
 };
-
-export default useChatMessages;

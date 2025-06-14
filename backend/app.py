@@ -58,6 +58,75 @@ def generate_conversation_title(content):
 def unauthorized(error):
     return jsonify({'error': 'Unauthorized'}), 401
 
+# Middleware to protect routes
+def token_required(f):
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+        
+        if token.startswith('Bearer '):
+            token = token[7:]
+        
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            # You can attach user to request here if needed
+            # request.user = data
+        except:
+            return jsonify({'error': 'Token is invalid'}), 401
+        
+        return f(*args, **kwargs)
+    
+    # Preserve the original function name to prevent endpoint conflicts
+    decorated.__name__ = f.__name__
+    return decorated
+
+# NEW STREAMING ENDPOINT
+@app.route('/api/chat/stream', methods=['POST'])
+@token_required
+def chat_stream():
+    """
+    Streaming chat endpoint that returns response chunks as they're generated.
+    """
+    try:
+        data = request.get_json()
+        conversation_id = data.get('conversation_id')
+        
+        if not conversation_id:
+            return jsonify({'error': 'conversation_id is required'}), 400
+        
+        # Verify conversation exists and user has access
+        token = request.headers.get('Authorization')
+        token = token[7:] if token.startswith('Bearer ') else token
+        
+        try:
+            jwt_data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            user_id = jwt_data['user_id']
+            
+            # Verify user owns this conversation
+            conversations = db.get_conversations(user_id)
+            conversation_exists = any(conv['id'] == conversation_id for conv in conversations)
+            
+            if not conversation_exists:
+                return jsonify({'error': 'Conversation not found or access denied'}), 404
+                
+        except Exception as e:
+            return jsonify({'error': 'Invalid token'}), 401
+        
+        # Get conversation messages
+        messages = gemini_integration.process_conversation_messages(conversation_id, db)
+        
+        if not messages:
+            return jsonify({'error': 'No messages found'}), 400
+        
+        # Return streaming response
+        return gemini_integration.get_gemini_response_stream_flask(messages)
+        
+    except Exception as e:
+        app.logger.error(f"Error in chat_stream: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -110,30 +179,6 @@ def login():
         }), 200
     else:
         return jsonify({'error': 'Invalid credentials'}), 401
-
-# Middleware to protect routes
-def token_required(f):
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return jsonify({'error': 'Token is missing'}), 401
-        
-        if token.startswith('Bearer '):
-            token = token[7:]
-        
-        try:
-            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            # You can attach user to request here if needed
-            # request.user = data
-        except:
-            return jsonify({'error': 'Token is invalid'}), 401
-        
-        return f(*args, **kwargs)
-    
-    # Preserve the original function name to prevent endpoint conflicts
-    decorated.__name__ = f.__name__
-    return decorated
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh_token():
@@ -228,74 +273,13 @@ def get_conversation_messages(conversation_id):
     messages = db.get_messages(conversation_id)
     return jsonify(messages), 200
 
-# @app.route('/api/conversations/<int:conversation_id>/messages', methods=['POST'])
-# @token_required
-# def add_conversation_message(conversation_id):
-#     content = request.json.get('content')
-#     role = request.json.get('role', 'user')
-    
-#     if not content:
-#         return jsonify({'error': 'Message content is required'}), 400
-    
-#     # Add the user message to the database
-#     message_id = db.add_message(conversation_id, role, content)
-    
-#     # Check if this is the first user message and update title if needed
-#     if role == 'user':
-#         try:
-#             # Get all messages to count user messages
-#             messages = db.get_messages(conversation_id)
-#             user_messages = [msg for msg in messages if msg['role'] == 'user']
-            
-#             # Check if this is the first user message and update title
-#             updated_title = None
-#             if len(user_messages) == 1:
-#                 new_title = generate_conversation_title(content)
-#                 success = db.update_conversation_title(conversation_id, new_title)
-#                 if success:
-#                     updated_title = new_title
-#                     print(f"Updated conversation {conversation_id} title to: {new_title}")
-            
-#             # Get all messages in this conversation for context
-#             messages = gemini_integration.process_conversation_messages(conversation_id, db)
-            
-#             # Get response from Gemini
-#             ai_response = gemini_integration.get_gemini_response(messages)
-            
-#             # Save the AI response to the database
-#             ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
-            
-#             response_data = {
-#                 'id': message_id,
-#                 'ai_response': {
-#                     'id': ai_message_id,
-#                     'content': ai_response
-#                 }
-#             }
-            
-#             # Include updated title if it was changed
-#             if updated_title:
-#                 response_data['updated_title'] = updated_title
-#                 response_data['conversation_id'] = conversation_id
-            
-#             return jsonify(response_data), 201
-            
-#         except Exception as e:
-#             app.logger.error(f"Error generating AI response: {str(e)}")
-#             # Still return success for the user message, but with error info
-#             return jsonify({
-#                 'id': message_id,
-#                 'error': f"Failed to generate AI response: {str(e)}"
-#             }), 201
-    
-#     # For non-user messages, just return the message ID
-#     return jsonify({'id': message_id}), 201
-
+# UPDATED MESSAGE ENDPOINT WITH STREAMING SUPPORT
 @app.route('/api/conversations/<int:conversation_id>/messages', methods=['POST'])
 @token_required
 def add_conversation_message(conversation_id):
     content = request.json.get('content')
     role = request.json.get('role', 'user')
+    use_streaming = request.json.get('use_streaming', True)  # Default to streaming
     
     if not content:
         return jsonify({'error': 'Message content is required'}), 400
@@ -329,23 +313,32 @@ def add_conversation_message(conversation_id):
                 print(f"ERROR in dialect processing: {str(e)}")
                 dialect_response = None
             
+            response_data = {
+                'id': message_id,
+                'use_streaming': use_streaming
+            }
+            
+            # Include updated title if it was changed
+            if updated_title:
+                response_data['updated_title'] = updated_title
+                response_data['conversation_id'] = conversation_id
+            
             if dialect_response:
                 # Save the dialect response as AI message
                 try:
                     ai_message_id = db.add_message(conversation_id, 'akuru', dialect_response)
-                    response_data = {
-                        'id': message_id,
-                        'ai_response': {
-                            'id': ai_message_id,
-                            'content': dialect_response
-                        },
-                        'source': 'dialect_database'
+                    response_data['ai_response'] = {
+                        'id': ai_message_id,
+                        'content': dialect_response
                     }
+                    response_data['source'] = 'dialect_database'
+                    response_data['use_streaming'] = False  # Dialect responses don't stream
                 except Exception as e:
                     print(f"ERROR saving dialect response: {str(e)}")
                     raise e
-            else:
-                # Use Gemini for response
+                    
+            elif not use_streaming:
+                # Use Gemini for non-streaming response
                 try:
                     # Get all messages in this conversation for context
                     messages = gemini_integration.process_conversation_messages(conversation_id, db)
@@ -359,22 +352,18 @@ def add_conversation_message(conversation_id):
                     # Save the AI response to the database
                     ai_message_id = db.add_message(conversation_id, 'akuru', ai_response)
                     
-                    response_data = {
-                        'id': message_id,
-                        'ai_response': {
-                            'id': ai_message_id,
-                            'content': ai_response
-                        },
-                        'source': 'gemini_ai'
+                    response_data['ai_response'] = {
+                        'id': ai_message_id,
+                        'content': ai_response
                     }
+                    response_data['source'] = 'gemini_ai'
                 except Exception as e:
                     print(f"ERROR in Gemini processing: {str(e)}")
                     raise e
-            
-            # Include updated title if it was changed
-            if updated_title:
-                response_data['updated_title'] = updated_title
-                response_data['conversation_id'] = conversation_id
+            else:
+                # For streaming, we just return success and let the client call /api/chat/stream
+                response_data['source'] = 'gemini_ai_streaming'
+                response_data['message'] = 'User message saved, use /api/chat/stream for AI response'
             
             return jsonify(response_data), 201
             
@@ -388,6 +377,9 @@ def add_conversation_message(conversation_id):
                 'id': message_id,
                 'error': f"Failed to generate response: {str(e)}"
             }), 201
+
+    # For non-user messages, just return the message ID
+    return jsonify({'id': message_id}), 201
 
 # Optional: Add endpoint to manually update conversation titles
 @app.route('/api/conversations/<int:conversation_id>/title', methods=['PUT'])
@@ -423,58 +415,6 @@ def get_guest_messages():
     """Get messages for current guest session"""
     messages = session.get('guest_messages', [])
     return jsonify(messages), 200
-
-# @app.route('/api/guest/messages', methods=['POST'])
-# def add_guest_message():
-#     """Add message to guest session"""
-#     content = request.json.get('content')
-#     role = request.json.get('role', 'user')
-    
-#     if not content:
-#         return jsonify({'error': 'Message content is required'}), 400
-    
-#     # Initialize session if it doesn't exist
-#     if 'guest_messages' not in session:
-#         session['guest_messages'] = []
-    
-#     # Add user message
-#     user_message = {
-#         'id': len(session['guest_messages']) + 1,
-#         'role': role,
-#         'content': content,
-#         'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
-#     }
-#     session['guest_messages'].append(user_message)
-    
-#     # Generate AI response for user messages
-#     if role == 'user':
-#         try:
-#             # Convert session messages to format expected by Gemini
-#             messages_for_ai = [{'role': msg['role'], 'content': msg['content']} 
-#                              for msg in session['guest_messages']]
-            
-#             ai_response = gemini_integration.get_gemini_response(messages_for_ai)
-            
-#             ai_message = {
-#                 'id': len(session['guest_messages']) + 1,
-#                 'role': 'akuru',
-#                 'content': ai_response,
-#                 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
-#             }
-#             session['guest_messages'].append(ai_message)
-            
-#             return jsonify({
-#                 'user_message': user_message,
-#                 'ai_response': ai_message
-#             }), 201
-            
-#         except Exception as e:
-#             return jsonify({
-#                 'user_message': user_message,
-#                 'error': f"Failed to generate AI response: {str(e)}"
-#             }), 201
-    
-#     return jsonify({'message': user_message}), 201
 
 @app.route('/api/guest/messages', methods=['POST'])
 def add_guest_message():
