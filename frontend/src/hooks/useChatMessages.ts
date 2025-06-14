@@ -10,6 +10,7 @@ export const useChatMessages = (
 ) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isFetchingMessages, setIsFetchingMessages] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -28,7 +29,8 @@ export const useChatMessages = (
     if (!conversationId) return;
     
     try {
-      setIsProcessing(true);
+      console.log('Setting isFetchingMessages to true (fetchMessages)'); // DEBUG LOG
+      setIsFetchingMessages(true);
       setError(null);
       
       const token = localStorage.getItem('token');
@@ -72,7 +74,8 @@ export const useChatMessages = (
       console.error('Error fetching messages:', err);
       setError(`Error fetching messages: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setIsProcessing(false);
+      console.log('Setting isFetchingMessages to false (fetchMessages)'); // DEBUG LOG
+      setIsFetchingMessages(false);
     }
   }, []);
 
@@ -107,6 +110,7 @@ export const useChatMessages = (
     if (!content.trim()) return;
 
     try {
+      console.log('Setting isProcessing to true (sendMessage)', { isAuthenticated }); // DEBUG LOG
       setIsProcessing(true);
       setError(null);
 
@@ -153,6 +157,8 @@ export const useChatMessages = (
       }
 
       // AUTHENTICATED USER FLOW
+      console.log('Starting authenticated user flow'); // DEBUG LOG
+      
       // If no conversation is selected, create a new one
       let conversationId = currentConversationId;
       if (!conversationId) {
@@ -210,6 +216,7 @@ export const useChatMessages = (
 
       // If the response contains an AI response, add it to the messages
       if (jsonData && jsonData.ai_response) {
+        console.log('Received AI response, adding to messages'); // DEBUG LOG
         const aiMessage: Message = {
           id: jsonData.ai_response.id,
           role: 'akuru',
@@ -224,6 +231,8 @@ export const useChatMessages = (
         }
         
         scrollToBottom();
+      } else {
+        console.log('No AI response in jsonData:', jsonData); // DEBUG LOG
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -237,6 +246,7 @@ export const useChatMessages = (
         onConversationError(err.message);
       }
     } finally {
+      console.log('Setting isProcessing to false (sendMessage)', { isAuthenticated }); // DEBUG LOG
       setIsProcessing(false);
     }
   }, [currentConversationId, createConversation, onConversationError, onTitleUpdate]);
@@ -286,6 +296,7 @@ export const useChatMessages = (
   return {
     messages,
     isProcessing,
+    isFetchingMessages,
     message,
     error,
     messagesEndRef: messagesEndRef as RefObject<HTMLDivElement>,
