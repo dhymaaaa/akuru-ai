@@ -310,27 +310,27 @@ def get_gemini_response_stream_flask(messages):
 #         current_app.logger.error(f"Error communicating with Gemini API: {e}")
 #         return f"I apologize, but I encountered an error: {str(e)}"
 
-# def process_conversation_messages(conversation_id, db_module):
-#     """
-#     Process all messages for a conversation and return Gemini-compatible format.
+def process_conversation_messages(conversation_id, db_module):
+    """
+    Process all messages for a conversation and return Gemini-compatible format.
     
-#     Args:
-#         conversation_id: ID of the conversation
-#         db_module: Database module for fetching messages
+    Args:
+        conversation_id: ID of the conversation
+        db_module: Database module for fetching messages
         
-#     Returns:
-#         List of message dictionaries with 'role' and 'content' keys
-#     """
-#     db_messages = db_module.get_messages(conversation_id)
+    Returns:
+        List of message dictionaries with 'role' and 'content' keys
+    """
+    db_messages = db_module.get_messages(conversation_id)
     
-#     # Convert DB messages to Gemini format
-#     gemini_messages = []
-#     for msg in db_messages:
-#         # Map 'akuru' role to 'assistant' for compatibility with standard conventions
-#         role = 'assistant' if msg['role'] == 'akuru' else msg['role']
-#         gemini_messages.append({
-#             'role': role,
-#             'content': msg['content']
-#         })
+    # Convert DB messages to Gemini format
+    gemini_messages = []
+    for msg in db_messages:
+        # Map 'akuru' role to 'assistant' for compatibility with standard conventions
+        role = 'assistant' if msg['role'] == 'akuru' else msg['role']
+        gemini_messages.append({
+            'role': role,
+            'content': msg['content']
+        })
     
-#     return gemini_messages
+    return gemini_messages
