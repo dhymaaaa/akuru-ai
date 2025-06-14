@@ -122,7 +122,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
         }}
       >
         {isCollapsed ? (
-          <Icon className='text-[#E9D8B5]' path={mdiAccountCircle} size={1} />
+          <Icon className='text-[#E9D8B5]' path={mdiAccountCircle} size={1} title="Profile"/>
         ) : (
           <>
             <div className="w-6 h-6 flex items-center justify-center">

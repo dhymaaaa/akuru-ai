@@ -150,6 +150,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onClick={onNewChat}
                 className="ml-4 p-2 text-[#E9D8B5] hover:text-white transition-colors"
                 aria-label="New Chat"
+                title="Start a new chat"
               >
                 <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-7 w-7"
                   width="100pt" height="100pt" viewBox="0 0 96.000000 96.000000"
