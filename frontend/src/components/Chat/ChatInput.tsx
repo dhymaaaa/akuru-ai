@@ -17,6 +17,23 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isMultiLine, setIsMultiLine] = React.useState(false);
+  const prevIsProcessingRef = useRef(isProcessing);
+
+  // Auto-focus when processing completes
+  useEffect(() => {
+    // Check if processing just finished (was true, now false)
+    if (prevIsProcessingRef.current && !isProcessing) {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        // Small delay to ensure DOM is updated
+        setTimeout(() => {
+          textarea.focus();
+        }, 100);
+      }
+    }
+    // Update the previous value
+    prevIsProcessingRef.current = isProcessing;
+  }, [isProcessing]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -60,7 +77,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           }
         `}
       </style>
-      
+     
       <div className="relative w-full max-w-3xl mx-auto">
         <div className="relative flex items-end">
           <textarea
@@ -95,7 +112,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           </button>
         </div>
       </div>
-      
+     
       <div className="flex justify-center text-xs text-gray-400 mt-2">
         <div className='font-bold'>Akuru can make mistakes</div>
         <div className='font-bold ml-5'>...</div>

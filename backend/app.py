@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, Response
 from flask_cors import CORS
 from flask_session import Session
 import bcrypt
@@ -7,6 +7,7 @@ import uuid
 import datetime
 import os
 from dotenv import load_dotenv
+import json
 import db  # Import our database module
 import gemini_integration  # Import our Gemini integration
 from dialect_middleware import DialectMiddleware
@@ -82,7 +83,7 @@ def token_required(f):
     decorated.__name__ = f.__name__
     return decorated
 
-# NEW STREAMING ENDPOINT
+# AUTHENTICATED USER STREAMING ENDPOINT (unchanged)
 @app.route('/api/chat/stream', methods=['POST'])
 @token_required
 def chat_stream():
@@ -125,6 +126,104 @@ def chat_stream():
         
     except Exception as e:
         app.logger.error(f"Error in chat_stream: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# NEW: GUEST USER STREAMING ENDPOINT
+@app.route('/api/guest/stream', methods=['POST'])
+def guest_stream():
+    """
+    Streaming chat endpoint for guest users
+    """
+    try:
+        # Check if guest session exists
+        if 'guest_session_id' not in session or 'guest_messages' not in session:
+            return jsonify({'error': 'No guest session found'}), 400
+        
+        guest_messages = session.get('guest_messages', [])
+        
+        if not guest_messages:
+            return jsonify({'error': 'No messages found in guest session'}), 400
+        
+        # Get the last user message to respond to
+        user_messages = [msg for msg in guest_messages if msg['role'] == 'user']
+        if not user_messages:
+            return jsonify({'error': 'No user message to respond to'}), 400
+        
+        last_user_message = user_messages[-1]
+        
+        # Check if this is a dialect request (guests should be prompted to login)
+        try:
+            dialect_response = dialect_middleware.process_dialect_request(last_user_message['content'], is_authenticated=False)
+            if dialect_response:
+                # Return non-streaming response for dialect requests from guests
+                def generate_login_prompt():
+                    login_message = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature.\n\nދިވެހި ބަހުރުވަ ތަކަށް ތަރުޖަމާ ކުރުމަށް އެކައުންޓެއް ހައްދަވާ، ނުވަތަ ލޮގިންވެ ލައްވާ. މި ފީޗަރަކީ ލޮގިންވާ ފަރާތްތަކަށް އިންނަ ފީޗަރެއް."
+                    yield f"data: {json.dumps({'chunk': login_message})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                
+                return Response(
+                    generate_login_prompt(),
+                    mimetype='text/plain',
+                    headers={
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    }
+                )
+        except Exception as e:
+            app.logger.error(f"Error in dialect processing for guest: {str(e)}")
+        
+        # Convert guest messages to format expected by Gemini
+        messages_for_ai = [
+            {'role': msg['role'], 'content': msg['content']} 
+            for msg in guest_messages
+        ]
+        
+        # Return streaming response from Gemini
+        return gemini_integration.get_gemini_response_stream_flask(messages_for_ai)
+        
+    except Exception as e:
+        app.logger.error(f"Error in guest_stream: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# NEW: SAVE GUEST STREAMING RESPONSE
+@app.route('/api/guest/save-response', methods=['POST'])
+def save_guest_response():
+    """Save streamed AI response to guest session"""
+    try:
+        if 'guest_session_id' not in session:
+            return jsonify({'error': 'No guest session found'}), 400
+        
+        data = request.get_json()
+        role = data.get('role', 'akuru')
+        content = data.get('content', '')
+        
+        if not content.strip():
+            return jsonify({'error': 'Content is required'}), 400
+        
+        # Initialize guest_messages if it doesn't exist
+        if 'guest_messages' not in session:
+            session['guest_messages'] = []
+        
+        # Create AI message
+        ai_message = {
+            'id': len(session['guest_messages']) + 1,
+            'role': role,
+            'content': content,
+            'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
+        
+        # Add to session
+        session['guest_messages'].append(ai_message)
+        
+        return jsonify({
+            'id': ai_message['id'],
+            'success': True,
+            'message': 'Response saved successfully'
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error saving guest response: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/signup', methods=['POST'])
@@ -416,11 +515,13 @@ def get_guest_messages():
     messages = session.get('guest_messages', [])
     return jsonify(messages), 200
 
+# UPDATED: Guest messages endpoint with streaming support
 @app.route('/api/guest/messages', methods=['POST'])
 def add_guest_message():
-    """Add message to guest session"""
+    """Add message to guest session with streaming support"""
     content = request.json.get('content')
     role = request.json.get('role', 'user')
+    use_streaming = request.json.get('use_streaming', True)  # Default to streaming
    
     if not content:
         return jsonify({'error': 'Message content is required'}), 400
@@ -441,34 +542,54 @@ def add_guest_message():
     # Generate AI response for user messages
     if role == 'user':
         try:
-            # *** NEW: Check if this is a dialect-related query ***
+            # Check if this is a dialect-related query
             dialect_response = dialect_middleware.process_dialect_request(content, is_authenticated=False)
+           
+            response_data = {
+                'user_message': user_message,
+                'use_streaming': use_streaming
+            }
            
             if dialect_response:
                 # For guest users, return login requirement message instead of dialect response
-                ai_response = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature.\n  ދިވެހި ބަހުރުވަ ތަކަށް ތަރުޖަމާ ކުރުމަށް އެކައުންޓެއް ހައްދަވާ، ނުވަތަ ލޮގިންވެ ލައްވާ. މި ފީޗަރަކީ ލޮގިންވާ ފަރާތްތަކަށް އިންނަ ފީޗަރެއް."
-                source = 'login_required'
-            else:
+                ai_response = "Dialect translation feature is only available for logged in users. Please create an account or log in to access this feature.\n\nދިވެހި ބަހުރުވަ ތަކަށް ތަރުޖަމާ ކުރުމަށް އެކައުންޓެއް ހައްދަވާ، ނުވަތަ ލޮގިންވެ ލައްވާ. މި ފީޗަރަކީ ލޮގިންވާ ފަރާތްތަކަށް އިންނަ ފީޗަރެއް."
+                
+                ai_message = {
+                    'id': len(session['guest_messages']) + 1,
+                    'role': 'akuru',
+                    'content': ai_response,
+                    'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+                session['guest_messages'].append(ai_message)
+                
+                response_data['ai_response'] = ai_message
+                response_data['source'] = 'login_required'
+                response_data['use_streaming'] = False  # Login prompts don't stream
+                
+            elif not use_streaming:
+                # Non-streaming response
                 # Convert session messages to format expected by Gemini
                 messages_for_ai = [{'role': msg['role'], 'content': msg['content']}
                                  for msg in session['guest_messages']]
                
                 ai_response = gemini_integration.get_gemini_response(messages_for_ai)
-                source = 'gemini_ai'
+                
+                ai_message = {
+                    'id': len(session['guest_messages']) + 1,
+                    'role': 'akuru',
+                    'content': ai_response,
+                    'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+                session['guest_messages'].append(ai_message)
+                
+                response_data['ai_response'] = ai_message
+                response_data['source'] = 'gemini_ai'
+            else:
+                # For streaming, return success and let client call /api/guest/stream
+                response_data['source'] = 'gemini_ai_streaming'
+                response_data['message'] = 'User message saved, use /api/guest/stream for AI response'
            
-            ai_message = {
-                'id': len(session['guest_messages']) + 1,
-                'role': 'akuru',
-                'content': ai_response,
-                'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
-            }
-            session['guest_messages'].append(ai_message)
-           
-            return jsonify({
-                'user_message': user_message,
-                'ai_response': ai_message,
-                'source': source  # Indicate the response source
-            }), 201
+            return jsonify(response_data), 201
            
         except Exception as e:
             return jsonify({

@@ -68,13 +68,37 @@ class DialectMiddleware:
             # Other non-Latin ranges can be added here if needed
         return False
 
+    # def determine_display_format(self, user_query):
+    #     """Determine display format based on user query patterns"""
+    #     patterns = [
+    #         (r"translate ['\"]?([^'\"?]+)['\"]? to dialects", 'all'),
+    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+male\s+dialect", 'male'),
+    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+huvadhoo", 'huvadhoo'),
+    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+addu", 'addu')
+    #     ]
+        
+    #     for pattern, format_type in patterns:
+    #         match = re.search(pattern, user_query, re.IGNORECASE)
+    #         if match:
+    #             search_term = match.group(1).strip()
+    #             # Clean up common words that might be captured
+    #             cleaned = re.sub(r'\b(the|a|an)\b', '', search_term).strip()
+    #             return (cleaned if cleaned else search_term), format_type
+        
+    #     return None, 'auto'
     def determine_display_format(self, user_query):
         """Determine display format based on user query patterns"""
         patterns = [
             (r"translate ['\"]?([^'\"?]+)['\"]? to dialects", 'all'),
             (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+male\s+dialect", 'male'),
             (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+huvadhoo", 'huvadhoo'),
-            (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+addu", 'addu')
+            (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+addu", 'addu'),
+            
+            # ADD THESE NEW SIMPLER PATTERNS:
+            (r"([a-zA-Z]+)\s+in\s+male(?:\s+dialect)?", 'male'),
+            (r"([a-zA-Z]+)\s+in\s+huvadhoo(?:\s+dialect)?", 'huvadhoo'),
+            (r"([a-zA-Z]+)\s+in\s+addu(?:\s+dialect)?", 'addu'),
+            (r"([a-zA-Z]+)\s+in\s+(?:all\s+)?dialects?", 'all'),
         ]
         
         for pattern, format_type in patterns:
@@ -83,8 +107,10 @@ class DialectMiddleware:
                 search_term = match.group(1).strip()
                 # Clean up common words that might be captured
                 cleaned = re.sub(r'\b(the|a|an)\b', '', search_term).strip()
+                print(f"DEBUG: Pattern '{pattern}' matched '{user_query}', extracted: '{search_term}', format: '{format_type}'")
                 return (cleaned if cleaned else search_term), format_type
         
+        print(f"DEBUG: No patterns matched for: '{user_query}'")
         return None, 'auto'
 
     def extract_search_term(self, message_content):
