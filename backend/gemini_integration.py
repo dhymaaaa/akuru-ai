@@ -34,7 +34,6 @@ Key guidelines:
 - Focus on being helpful rather than efficient but still focus on efficiency
 
 CRITICAL FORMATTING RULE: 
-1. First section: English only
 2. Do NOT use "بالکل" or any Arabic/Urdu words in the Dhivehi section
 3. Do NOT use "ච්", "ච", "තේරුම්" or any Sinhala words in the Dhivehi section
 4. Do NOT use "മനസ്സിലാ" or any Malayalam words in the Dhivehi section

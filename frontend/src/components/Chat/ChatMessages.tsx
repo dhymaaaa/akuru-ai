@@ -67,7 +67,6 @@ const formatMessageContent = (content: string) => {
         return (
           <React.Fragment key={`mixed-${index}`}>
             {index > 0}
-            {/* {index > 0 && <br />} */}
             {result}
           </React.Fragment>
         );
@@ -75,7 +74,7 @@ const formatMessageContent = (content: string) => {
         // For pure Dhivehi lines
         return (
           <React.Fragment key={`dhivehi-line-${index}`}>
-            {index > 0 && <br />}
+            {index > 0}
             <div className="block rtl text-right mt-3">{line}</div>
           </React.Fragment>
         );
@@ -84,7 +83,7 @@ const formatMessageContent = (content: string) => {
       // For pure non-Dhivehi lines
       return (
         <React.Fragment key={`non-dhivehi-line-${index}`}>
-          {index > 0 && <br />}
+          {index > 0}
           <span className="text-left ltr">{line}</span>
         </React.Fragment>
       );
