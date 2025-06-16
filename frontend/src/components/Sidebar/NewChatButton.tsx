@@ -11,7 +11,7 @@ const NewChatButton: React.FC<NewChatButtonProps> = ({ onClick, isCollapsed }) =
     <div className={`${isCollapsed ? 'flex justify-center' : 'px-4'}`}>
       {isCollapsed ? (
         // Simple icon without any container/border when collapsed
-        <button onClick={onClick} className="p-1" title='Start new chat'>
+        <button onClick={onClick} className="p-1 cursor-pointer" title='Start new chat'>
           <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-6 w-6"
             width="96.000000pt" height="96.000000pt" viewBox="0 0 96.000000 96.000000"
             preserveAspectRatio="xMidYMid meet">
@@ -35,7 +35,7 @@ const NewChatButton: React.FC<NewChatButtonProps> = ({ onClick, isCollapsed }) =
         // Full button with background when expanded
         <button
           onClick={onClick}
-          className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition hover:bg-[#363636]"
+          className="flex items-center space-x-2 w-full rounded-lg px-4 py-3 bg-[#292929] transition hover:bg-[#363636] cursor-pointer"
         >
           <svg version="1.0" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
             width="96.000000pt" height="96.000000pt" viewBox="0 0 96.000000 96.000000"

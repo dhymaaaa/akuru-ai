@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       <div className='flex flex-col h-full'>
         <div className={`p-5 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} ${isProfileExpanded ? 'blur' : ''}`}>
-          <button className="p-1" onClick={toggleSidebar} title='Toggle sidebar'>
+          <button className="p-1 cursor-pointer" onClick={toggleSidebar} title='Toggle sidebar'>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#E9D8B5">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>

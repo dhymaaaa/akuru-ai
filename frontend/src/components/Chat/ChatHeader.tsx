@@ -148,7 +148,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             {onNewChat && (
               <button
                 onClick={onNewChat}
-                className="ml-4 p-2 text-[#E9D8B5] hover:text-white transition-colors"
+                className="ml-4 p-2 text-[#E9D8B5] hover:text-white transition-colors cursor-pointer"
                 aria-label="New Chat"
                 title="Start a new chat"
               >
@@ -174,10 +174,10 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             )}
           </div>
           <div>
-            <button onClick={onLogin} className="bg-[#434343] mr-4 text-white px-10 py-1 rounded-full">
+            <button onClick={onLogin} className="bg-[#434343] mr-4 text-white px-10 py-1 rounded-full cursor-pointer">
               Login
             </button>
-            <button onClick={onRegister} className="bg-[#1E1E1E] text-white px-10 py-1 rounded-full">
+            <button onClick={onRegister} className="bg-[#1E1E1E] text-white px-10 py-1 rounded-full cursor-pointer">
               Register
             </button>
           </div>
