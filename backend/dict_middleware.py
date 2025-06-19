@@ -163,8 +163,7 @@ class DictionaryMiddleware:
         if not is_dictionary_query:
             return None
         
-        # Dictionary queries are available to all users (both authenticated and guests)
-        # So we process the request regardless of authentication status
+        # Process the request regardless of authentication status
         search_term = self.extract_search_term(message_content)
         
         # Search for dictionary data

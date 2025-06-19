@@ -23,7 +23,6 @@ export const Login = () => {
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
-        // setMessage('');
         
         if (!email || !password) {
             setError('Email and password are required');
@@ -50,12 +49,18 @@ export const Login = () => {
             // Store token in localStorage
             localStorage.setItem('token', data.token);
             
+            // IMPORTANT: Clear guest mode flag
+            localStorage.removeItem('guestMode');
+            
             // Clear form
             setEmail('');
             setPassword('');
             
-            // Redirect to dashboard or home page
-            navigate('/');
+            // Add a small delay to ensure localStorage is updated
+            setTimeout(() => {
+                // Force a page reload to trigger useAuth hook refresh
+                window.location.href = '/';
+            }, 100);
             
         } catch (err: unknown) {
             if (err instanceof Error){

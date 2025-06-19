@@ -270,7 +270,7 @@ def signup():
         user = db.get_user_by_email(email)
         
         if user:
-            # Generate JWT token (same as login)
+            # Generate JWT token
             token = jwt.encode({
                 'user_id': user['id'],
                 'email': user['email'],
@@ -278,9 +278,8 @@ def signup():
             }, SECRET_KEY, algorithm='HS256')
             
             return jsonify({
-                'message': message,
+                'message': 'Account created successfully',
                 'token': token,
-                'refreshToken': 'refresh_token_str',  # You may want to implement proper refresh tokens
                 'user': {
                     'id': user['id'],
                     'name': user['name'],
@@ -294,6 +293,7 @@ def signup():
         if message == "User already exists":
             return jsonify({'error': message}), 409
         return jsonify({'error': message}), 500
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -321,36 +321,117 @@ def login():
         return jsonify({
             'message': 'Login successful',
             'token': token,
-            'refreshToken': 'refresh_token_str'
+            'user': {
+                'id': user['id'],
+                'name': user['name'],
+                'email': user['email']
+            }
         }), 200
     else:
         return jsonify({'error': 'Invalid credentials'}), 401
 
-@app.route('/api/refresh', methods=['POST'])
-def refresh_token():
-    data = request.get_json()
-    refresh_token = data.get('refreshToken')
+
+# @app.route('/api/signup', methods=['POST'])
+# def signup():
+#     data = request.get_json()
+#     name = data.get('name')
+#     email = data.get('email')
+#     password = data.get('password')
     
-    if not refresh_token:
-        return jsonify({'error': 'Refresh token required'}), 401
+#     if not name or not email or not password:
+#         return jsonify({'error': 'Name, email and password are required'}), 400
     
-    try:
-        decoded = jwt.decode(refresh_token, SECRET_KEY, algorithms=['HS256'])
+#     # Hash the password
+#     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    
+#     success, message = db.create_user(name, email, hashed_password.decode('utf-8'))
+    
+#     if success:
+#         # Get the newly created user to generate JWT token
+#         user = db.get_user_by_email(email)
         
-        # Validate it's actually a refresh token
-        if decoded.get('type') != 'refresh':
-            return jsonify({'error': 'Invalid token type'}), 401
+#         if user:
+#             # Generate JWT token (same as login)
+#             token = jwt.encode({
+#                 'user_id': user['id'],
+#                 'email': user['email'],
+#                 'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+#             }, SECRET_KEY, algorithm='HS256')
             
-        # Generate new access token
-        new_token = jwt.encode({
-            'user_id': decoded['user_id'],
-            'email': decoded['email'],
-            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
-        }, SECRET_KEY, algorithm='HS256')
+#             return jsonify({
+#                 'message': message,
+#                 'token': token,
+#                 'refreshToken': 'refresh_token_str',  # You may want to implement proper refresh tokens
+#                 'user': {
+#                     'id': user['id'],
+#                     'name': user['name'],
+#                     'email': user['email']
+#                 }
+#             }), 201
+#         else:
+#             # Fallback if user retrieval fails
+#             return jsonify({'message': message}), 201
+#     else:
+#         if message == "User already exists":
+#             return jsonify({'error': message}), 409
+#         return jsonify({'error': message}), 500
+
+# @app.route('/api/login', methods=['POST'])
+# def login():
+#     data = request.get_json()
+#     email = data.get('email')
+#     password = data.get('password')
+    
+#     if not email or not password:
+#         return jsonify({'error': 'Email and password are required'}), 400
+    
+#     user = db.get_user_by_email(email)
+    
+#     if not user:
+#         return jsonify({'error': 'Invalid credentials'}), 401
+    
+#     # Check password
+#     if bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+#         # Generate JWT token
+#         token = jwt.encode({
+#             'user_id': user['id'],
+#             'email': user['email'],
+#             'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+#         }, SECRET_KEY, algorithm='HS256')
         
-        return jsonify({'token': new_token}), 200
-    except:
-        return jsonify({'error': 'Invalid refresh token'}), 401
+#         return jsonify({
+#             'message': 'Login successful',
+#             'token': token,
+#             'refreshToken': 'refresh_token_str'
+#         }), 200
+#     else:
+#         return jsonify({'error': 'Invalid credentials'}), 401
+
+# @app.route('/api/refresh', methods=['POST'])
+# def refresh_token():
+#     data = request.get_json()
+#     refresh_token = data.get('refreshToken')
+    
+#     if not refresh_token:
+#         return jsonify({'error': 'Refresh token required'}), 401
+    
+#     try:
+#         decoded = jwt.decode(refresh_token, SECRET_KEY, algorithms=['HS256'])
+        
+#         # Validate it's actually a refresh token
+#         if decoded.get('type') != 'refresh':
+#             return jsonify({'error': 'Invalid token type'}), 401
+            
+#         # Generate new access token
+#         new_token = jwt.encode({
+#             'user_id': decoded['user_id'],
+#             'email': decoded['email'],
+#             'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+#         }, SECRET_KEY, algorithm='HS256')
+        
+#         return jsonify({'token': new_token}), 200
+#     except:
+#         return jsonify({'error': 'Invalid refresh token'}), 401
 
 @app.route('/api/user', methods=['GET'])
 @token_required

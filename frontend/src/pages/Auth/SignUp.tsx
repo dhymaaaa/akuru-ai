@@ -45,7 +45,7 @@ export const SignUp = () => {
         setIsLoading(true);
 
         try {
-            // First, create the user account
+            // Your Flask signup endpoint already returns a token, so we don't need to make a separate login call
             const signupResponse = await fetch('http://localhost:5000/api/signup', {
                 method: 'POST',
                 headers: {
@@ -60,32 +60,29 @@ export const SignUp = () => {
                 throw new Error(signupData.error || 'Failed to sign up');
             }
 
-            // After successful signup, automatically log the user in
-            const loginResponse = await fetch('http://localhost:5000/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
+            // Your Flask backend already returns a token in the signup response
+            if (signupData.token) {
+                // Store token in localStorage
+                localStorage.setItem('token', signupData.token);
+                
+                // IMPORTANT: Clear guest mode flag
+                localStorage.removeItem('guestMode');
+                
+                // Clear form
+                setName('');
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
 
-            const loginData = await loginResponse.json();
-
-            if (!loginResponse.ok) {
-                throw new Error(loginData.error || 'Failed to log in after signup');
+                // Add a small delay to ensure localStorage is updated
+                setTimeout(() => {
+                    // Force a page reload to trigger useAuth hook refresh
+                    window.location.href = '/';
+                }, 100);
+            } else {
+                // Fallback: if no token in signup response, throw error
+                throw new Error('No authentication token received');
             }
-
-            // Store token in localStorage
-            localStorage.setItem('token', loginData.token);
-
-            // Clear form
-            setName('');
-            setEmail('');
-            setPassword('');
-            setConfirmPassword('');
-
-            // Redirect to auth home page
-            navigate('/');
 
         } catch (err: unknown) {
             if (err instanceof Error) {

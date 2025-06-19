@@ -13,7 +13,7 @@ const getAuthHeaders = () => {
   };
 };
 
-// Token refresh logic
+// Token refresh logic (commented out since your Flask doesn't have this endpoint)
 const refreshToken = async (): Promise<string | null> => {
   try {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -23,6 +23,8 @@ const refreshToken = async (): Promise<string | null> => {
     }
     
     console.log('Attempting to refresh token...');
+    // NOTE: Your Flask backend doesn't have /refresh endpoint
+    // You may want to implement this or remove refresh logic
     const response = await fetch(`${API_URL}/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -58,7 +60,7 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
   // First attempt
   let response = await fetch(url, fetchOptions);
   
-  // If unauthorized, try refresh
+  // If unauthorized, try refresh (only if refresh endpoint exists)
   if (response.status === 401) {
     console.log('Received 401, attempting to refresh token...');
     const newToken = await refreshToken();
@@ -87,7 +89,7 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
 // Individual exported functions with enhanced auth
 export const fetchUserData = async (): Promise<UserData> => {
   try {
-    const response = await authFetch(`${API_URL}/user`);
+    const response = await authFetch(`${API_URL}/user`); // Fixed: was /profile
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -180,14 +182,14 @@ export const sendMessage = async (conversationId: number, content: string): Prom
 // Main API object with all functions
 const api = {
   // AUTH ENDPOINTS
-  signup: async (email: string, password: string): Promise<AuthResponse> => {
-    // No auth required for signup
+  signup: async (email: string, password: string, name: string): Promise<AuthResponse> => {
+    // Updated to include name parameter that your Flask expects
     const response = await fetch(`${API_URL}/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, email, password }), // Added name field
     });
     
     const data = await response.json();
@@ -196,11 +198,18 @@ const api = {
       throw new Error(data.error || 'Failed to sign up');
     }
     
+    // Store the token if returned (your Flask signup now returns token)
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+    }
+    
     return data;
   },
   
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    // No auth required for login
     const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: {
@@ -228,7 +237,8 @@ const api = {
   },
   
   getProfile: async (): Promise<UserData> => {
-    const response = await authFetch(`${API_URL}/profile`);
+    // Fixed: changed from /profile to /user to match Flask backend
+    const response = await authFetch(`${API_URL}/user`);
     
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
