@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS dialects (
 
 
 
+-- INSERT INTO dialects (eng_term, male_term, huvadhoo_term, addu_term, male_transliteration, huvadhoo_transliteration, addu_transliteration) VALUES
+-- ('Mother', 'މަންމަ', 'މަންމަ', 'މަންމާ / އަމާ', 'manma', 'manma', 'manmaa / amaa')),
+-- ('Father', 'ބައްޕަ', 'ބައްޕަ / އައްޕަ', 'ބައްޕާ', 'bappa', 'bappa / appa', 'bappaa'),
+-- ('Son', 'ފިރިހެން ދަރި', 'ހުތާ', 'ފުތާ', 'firihen dhari', 'huthaa', 'futhaa'),
+-- ('Daughter', 'އަންހެން ދަރި', 'ދިޔެ', 'ދިޔެ', 'anhen dhari', 'dhiye', 'dhiye'),
+-- ('Brother older', 'ބޭބެ', 'ބޭބެ', 'ބޭބެ', 'beybe', 'beybe', 'beybe'),
+-- ('Sister older', 'ދައްތަ', 'ދައްތަ', 'ދައްތަ', 'dhahtha', 'dhahtha', 'dhahtha'),
+-- ('Brother / sister younger', 'ކޮއްކޮ', 'ކޮއްކޮ', 'ކޮއްކޮ', 'kokko', 'kokko', 'kokko'),
+-- ('Grandmother', 'މާމަ', 'މާމަ / މުންނާ', 'މާމަ / މުންނާ', 'maama', 'maama / munnaa', 'maama / munnaa'),
+-- ('Grandfather', 'ކާފަ', 'ކާފަ', 'ކާފަ', 'kaafa', 'kaafa', 'kaafa'),
+-- ('Aunt', 'ބޮޑު ދައިތަ', 'ބޮޑެއައްތާ', 'ބޮންޑޮ ދައިތާ', 'bodu dhaitha', 'bodeahthaa', 'bondo dhaithaa'),
+-- ('Uncle', 'ބޮޑު ބޭބެ', 'ބޮޑެބޭ', 'ބޮންޑޮ ބޭބޭ', 'bodu beybe', 'bodebey', 'bondo beybey');
+
+
+
 -- Create indexes for faster queries
 -- CREATE INDEX idx_email ON users(email);
 -- CREATE INDEX idx_user_id ON conversations(user_id);
