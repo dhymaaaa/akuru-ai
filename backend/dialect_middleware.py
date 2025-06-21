@@ -68,24 +68,6 @@ class DialectMiddleware:
             # Other non-Latin ranges can be added here if needed
         return False
 
-    # def determine_display_format(self, user_query):
-    #     """Determine display format based on user query patterns"""
-    #     patterns = [
-    #         (r"translate ['\"]?([^'\"?]+)['\"]? to dialects", 'all'),
-    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+male\s+dialect", 'male'),
-    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+huvadhoo", 'huvadhoo'),
-    #         (r"(?:what is|how do you say|what's|whats)\s+['\"']?([^'\"?]+)['\"']?\s+in\s+addu", 'addu')
-    #     ]
-        
-    #     for pattern, format_type in patterns:
-    #         match = re.search(pattern, user_query, re.IGNORECASE)
-    #         if match:
-    #             search_term = match.group(1).strip()
-    #             # Clean up common words that might be captured
-    #             cleaned = re.sub(r'\b(the|a|an)\b', '', search_term).strip()
-    #             return (cleaned if cleaned else search_term), format_type
-        
-    #     return None, 'auto'
     def determine_display_format(self, user_query):
         """Determine display format based on user query patterns"""
         patterns = [

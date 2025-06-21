@@ -1,4 +1,3 @@
-// NewChatButton.tsx - Without border in collapsed state
 import React from 'react';
 
 interface NewChatButtonProps {

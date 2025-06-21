@@ -1,4 +1,3 @@
-// hooks/useConversations.ts
 import { useState, useCallback } from 'react';
 import { Conversation } from '@/types';
 

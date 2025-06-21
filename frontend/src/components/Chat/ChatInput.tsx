@@ -92,10 +92,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
             disabled={isProcessing}
             rows={1}
             style={{
-              minHeight: '40px', // Reduced from 48px to 40px
+              minHeight: '40px', 
               maxHeight: '84px', // Maximum height for 3 lines
               scrollbarWidth: 'none', // Firefox
-              msOverflowStyle: 'none' // IE and Edge
+              msOverflowStyle: 'none' // Edge
             }}
           />
           <button
